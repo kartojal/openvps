@@ -1,0 +1,14 @@
+/target
+/assets/vmlinux*
+/assets/*.ext4
+/assets/*.squashfs
+/assets/*.id_rsa*
+*.sock
+*.socket
+*.log
+.env
+.env.local
+*.pem
+*.key
+firecracker.log
+**/*.rs.bk

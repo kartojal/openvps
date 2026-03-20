@@ -1,0 +1,29 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - jq
+  - iptables
+  - iproute2
+  - bridge-utils
+  - squashfs-tools
+  - build-essential
+
+runcmd:
+  # Install Rust
+  - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  - source /root/.cargo/env
+
+  # Clone and build
+  - cd /opt && git clone https://github.com/kartojal/mpp-hosting.git
+  - cd /opt/mpp-hosting && /root/.cargo/bin/cargo build --release
+  - cp /opt/mpp-hosting/target/release/mpp-hosting-api /usr/local/bin/
+
+  # Run host setup
+  - chmod +x /opt/mpp-hosting/infra/*.sh
+  - cd /opt/mpp-hosting && ./infra/setup-host.sh
+
+  # Start the service
+  - systemctl enable --now mpp-hosting

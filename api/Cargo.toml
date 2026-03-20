@@ -1,0 +1,62 @@
+[package]
+name = "mpp-hosting-api"
+version = "0.1.0"
+edition = "2021"
+description = "MPP-powered VPS hosting API - AI agents pay for compute via Machine Payments Protocol"
+
+[dependencies]
+# Web framework
+axum = { version = "0.8", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio", "http1"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client (for Firecracker unix socket API)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Crypto / signatures
+alloy-primitives = "0.8"
+alloy-sol-types = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+
+# Configuration
+dotenvy = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID for VM IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# IP network management
+ipnet = "2"
+
+# Rand for MAC address generation
+rand = "0.8"
+
+# Base64 for SSH keys
+base64 = "0.22"
+
+[dev-dependencies]
+tokio-test = "0.4"
