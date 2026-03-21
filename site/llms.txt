@@ -1,0 +1,45 @@
+# OpenVPS — AI-Agent VPS Hosting
+
+> VPS hosting for AI agents via machine-to-machine stablecoin payments.
+
+## What is OpenVPS?
+
+OpenVPS provisions Firecracker microVMs and accepts payment via HTTP 402.
+AI agents request compute, pay with stablecoins (USDC, cUSD, pathUSD),
+and get root SSH access to Ubuntu 24.04 VMs in under 3 seconds.
+
+No accounts. No API keys. Just pay and compute.
+
+## How to use
+
+Your agent should read the skill file for complete instructions:
+
+    curl https://openvps.sh/skill.md
+
+## API Endpoint
+
+    https://openvps.sh/v1/provision
+
+## Payment Protocols
+
+- x402 (Coinbase standard) — Base USDC, Celo cUSD
+- MPP (Machine Payments Protocol) — Tempo pathUSD
+
+## Quick Flow
+
+1. POST /v1/provision → 402 Payment Required (with pricing)
+2. Pay stablecoins on Base, Celo, or Tempo
+3. Resubmit with proof → 201 Created (SSH host, port, private key)
+4. ssh -p PORT -i key root@HOST
+
+## Pricing
+
+- 1 vCPU: $0.005/hour
+- 1 GB RAM: $0.002/hour
+- 1 GB Disk: $0.0001/hour
+
+## Links
+
+- Skill file: https://openvps.sh/skill.md
+- API docs: https://openvps.sh/skill.md
+- Source: https://github.com/kartojal/openvps

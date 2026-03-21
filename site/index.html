@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenVPS — AI-Agent VPS. Pay with crypto. SSH in seconds.</title>
+<meta name="description" content="VPS hosting for AI agents. Pay with stablecoins via x402 or MPP. Get root SSH access in under 3 seconds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #fafafa;
+  --fg: #111;
+  --muted: #666;
+  --border: #e0e0e0;
+  --accent: #0057ff;
+  --green: #00c853;
+  --code-bg: #1a1a2e;
+  --code-fg: #e0e0e0;
+  --pixel: 4px;
+}
+
+body {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Pixel art decorations */
+.pixel-grid {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    radial-gradient(circle, #ddd 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Header */
+header {
+  padding: 48px 0 32px;
+  text-align: center;
+}
+
+.logo {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+.pixel-vm {
+  display: inline-block;
+  margin: 0 auto 32px;
+  image-rendering: pixelated;
+}
+
+/* Pixel art VM - pure CSS */
+.pixel-art {
+  display: grid;
+  grid-template-columns: repeat(16, var(--pixel));
+  grid-template-rows: repeat(12, var(--pixel));
+  gap: 0;
+  margin: 0 auto 32px;
+  width: fit-content;
+}
+
+.pixel-art span {
+  width: var(--pixel);
+  height: var(--pixel);
+  display: block;
+}
+
+h1 {
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+}
+
+h1 .accent { color: var(--accent); }
+
+.subtitle {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 540px;
+  margin: 0 auto 40px;
+}
+
+/* CTA */
+.cta-block {
+  background: var(--code-bg);
+  border-radius: 12px;
+  padding: 32px;
+  margin: 0 auto 48px;
+  max-width: 640px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-block::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--green), var(--accent));
+}
+
+.cta-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.cta-command {
+  font-size: clamp(14px, 2.5vw, 20px);
+  color: var(--green);
+  word-break: break-all;
+  user-select: all;
+  cursor: pointer;
+}
+
+.cta-command .prompt { color: #888; }
+
+.cta-hint {
+  font-size: 13px;
+  color: #666;
+  margin-top: 12px;
+}
+
+/* How it works */
+.section {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+}
+
+.section h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.step {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--fg);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  /* pixelated corners */
+  clip-path: polygon(
+    4px 0, calc(100% - 4px) 0,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0 calc(100% - 4px), 0 4px
+  );
+}
+
+.step h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.step p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Code blocks */
+.code-block {
+  background: var(--code-bg);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+.code-block code {
+  color: var(--code-fg);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre;
+}
+
+.code-block .comment { color: #666; }
+.code-block .string { color: #a5d6a7; }
+.code-block .key { color: #90caf9; }
+.code-block .number { color: #f48fb1; }
+.code-block .status { color: #ffcc02; }
+
+/* Networks */
+.networks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.network-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.network-card .protocol {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.network-card .name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.network-card .token {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Pricing */
+.price-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.price-table th, .price-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.price-table th {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.price-table td:last-child {
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+}
+
+/* Pixel decorations */
+.pixel-server {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+.px-block {
+  width: 8px;
+  height: 8px;
+  background: var(--fg);
+  opacity: 0.15;
+}
+
+.px-block.active {
+  opacity: 1;
+  background: var(--green);
+  animation: blink 2s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Footer */
+footer {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+footer a {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+footer a:hover { text-decoration: underline; }
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .cta-block { padding: 20px; }
+  .steps { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="pixel-grid"></div>
+
+<div class="container">
+  <header>
+    <div class="logo">OpenVPS</div>
+
+    <!-- Pixel art server rack -->
+    <div class="pixel-server">
+      <div class="px-block"></div>
+      <div class="px-block active"></div>
+      <div class="px-block"></div>
+      <div class="px-block active" style="animation-delay: 0.3s"></div>
+      <div class="px-block"></div>
+      <div class="px-block"></div>
+      <div class="px-block active" style="animation-delay: 0.7s"></div>
+      <div class="px-block"></div>
+      <div class="px-block active" style="animation-delay: 1.1s"></div>
+      <div class="px-block"></div>
+      <div class="px-block"></div>
+      <div class="px-block active" style="animation-delay: 0.5s"></div>
+      <div class="px-block"></div>
+      <div class="px-block active" style="animation-delay: 1.4s"></div>
+      <div class="px-block"></div>
+      <div class="px-block"></div>
+    </div>
+
+    <h1>VPS for <span class="accent">AI Agents</span>.<br>Pay crypto. SSH in seconds.</h1>
+    <p class="subtitle">Firecracker microVMs provisioned via HTTP 402. Your agent pays with stablecoins — gets root SSH access in under 3 seconds. No accounts. No API keys. Just pay and compute.</p>
+  </header>
+
+  <!-- CTA -->
+  <div class="cta-block">
+    <div class="cta-label mono">Point your AI agent here</div>
+    <div class="cta-command mono">
+      <span class="prompt">$</span> curl openvps.sh/skill.md
+    </div>
+    <div class="cta-hint mono">Your agent reads the skill, pays, and SSHs in. That's it.</div>
+  </div>
+
+  <!-- How it works -->
+  <div class="section">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Request</h3>
+        <p>POST /v1/provision with desired specs. Get a 402 Payment Required with pricing.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Pay</h3>
+        <p>Transfer stablecoins on Base, Celo, or Tempo. x402 or MPP — your choice.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Compute</h3>
+        <p>Get a public IP, SSH port, and private key. Root access to Ubuntu 24.04.</p>
+      </div>
+    </div>
+
+    <div class="code-block"><code><span class="comment"># 1. Request a VPS (get payment challenge)</span>
+curl -s https://openvps.sh/v1/provision \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d <span class="string">'{"vcpus": 2, "ram_mb": 1024, "duration": 3600}'</span>
+
+<span class="comment"># Response: 402 Payment Required</span>
+<span class="comment"># {</span>
+<span class="comment">#   "amount": "12548",     ← $0.01 in microdollars</span>
+<span class="comment">#   "recipient": "0x...",  ← pay here</span>
+<span class="comment">#   "chain_id": 84532      ← Base Sepolia</span>
+<span class="comment"># }</span>
+
+<span class="comment"># 2. Pay and resubmit → get SSH access</span>
+<span class="comment"># Response: 201 Created</span>
+<span class="comment"># {</span>
+<span class="comment">#   "ssh_host": "95.216.14.126",</span>
+<span class="comment">#   "ssh_port": 2201,</span>
+<span class="comment">#   "ssh_command": "ssh -p 2201 root@95.216.14.126",</span>
+<span class="comment">#   "ssh_private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\n..."</span>
+<span class="comment"># }</span></code></div>
+  </div>
+
+  <!-- Payment Networks -->
+  <div class="section">
+    <h2>Pay with any stablecoin</h2>
+    <div class="networks">
+      <div class="network-card">
+        <div class="protocol">x402</div>
+        <div class="name">Base</div>
+        <div class="token">USDC</div>
+      </div>
+      <div class="network-card">
+        <div class="protocol">x402</div>
+        <div class="name">Celo</div>
+        <div class="token">cUSD</div>
+      </div>
+      <div class="network-card">
+        <div class="protocol">MPP</div>
+        <div class="name">Tempo</div>
+        <div class="token">pathUSD</div>
+      </div>
+    </div>
+    <p style="text-align: center; color: var(--muted); font-size: 13px; margin-top: 16px;">
+      Wallets: Foundry keystore, Open Wallet Standard, Coinbase Agentic Wallet, Bankr, or any EVM signer
+    </p>
+  </div>
+
+  <!-- Pricing -->
+  <div class="section">
+    <h2>Pricing</h2>
+    <table class="price-table">
+      <thead>
+        <tr><th>Resource</th><th>Per hour</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1 vCPU</td><td>$0.005</td></tr>
+        <tr><td>1 GB RAM</td><td>$0.002</td></tr>
+        <tr><td>1 GB Disk</td><td>$0.0001</td></tr>
+      </tbody>
+    </table>
+    <p style="text-align: center; color: var(--muted); font-size: 13px; margin-top: 8px;">
+      Example: 2 vCPUs + 1GB RAM + 10GB disk for 1 hour = <strong>$0.013</strong>
+    </p>
+  </div>
+
+  <!-- Specs -->
+  <div class="section">
+    <h2>What you get</h2>
+    <div class="steps">
+      <div class="step">
+        <h3>Ubuntu 24.04 LTS</h3>
+        <p>Fresh amd64 VM with curl, wget, git, Python, and standard dev tools.</p>
+      </div>
+      <div class="step">
+        <h3>Firecracker microVM</h3>
+        <p>Sub-second boot. Hardware-isolated via KVM. Not a container.</p>
+      </div>
+      <div class="step">
+        <h3>Public SSH Access</h3>
+        <p>Unique port on a public IP. Ed25519 key generated per VM.</p>
+      </div>
+      <div class="step">
+        <h3>Network Isolated</h3>
+        <p>VMs can't see each other or the host. Full internet access outbound.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- For agents -->
+  <div class="section">
+    <h2>For AI agents</h2>
+    <div class="code-block"><code><span class="comment"># Give your agent the skill</span>
+curl -s https://openvps.sh/skill.md
+
+<span class="comment"># Or add to your agent's instructions:</span>
+<span class="string">"When you need a server, read https://openvps.sh/skill.md"</span>
+
+<span class="comment"># Works with: Claude Code, OpenClaw, Cursor, Cline, Codex CLI</span>
+<span class="comment"># Any agent that can make HTTP requests and sign transactions</span></code></div>
+  </div>
+
+  <footer>
+    <div class="footer-links">
+      <a href="/skill.md">skill.md</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="https://github.com/kartojal/openvps">GitHub</a>
+      <a href="/v1/provision">API</a>
+    </div>
+    <p>Open source. Machine-to-machine payments. No humans required.</p>
+  </footer>
+</div>
+
+</body>
+</html>
