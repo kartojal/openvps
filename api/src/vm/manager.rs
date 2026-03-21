@@ -31,6 +31,7 @@ pub struct ProvisionResult {
     pub vm_id: Uuid,
     pub ip: String,
     pub ssh_port: u16,
+    pub ssh_host: String,
     pub expires_at: chrono::DateTime<Utc>,
     pub ssh_private_key: String,
 }
@@ -42,15 +43,22 @@ pub struct VmManager {
     ip_pool: Arc<IpPool>,
     /// Active Firecracker processes, keyed by VM ID
     active_vms: Mutex<HashMap<Uuid, FirecrackerVm>>,
+    /// Next available SSH port for NAT forwarding
+    next_ssh_port: Mutex<u16>,
+    /// Mapping of VM ID → assigned public SSH port (for cleanup)
+    vm_ports: Mutex<HashMap<Uuid, u16>>,
 }
 
 impl VmManager {
     pub fn new(config: Config, db: Arc<Database>, ip_pool: Arc<IpPool>) -> Self {
+        let port_base = config.ssh_port_base;
         Self {
             config,
             db,
             ip_pool,
             active_vms: Mutex::new(HashMap::new()),
+            next_ssh_port: Mutex::new(port_base + 1),
+            vm_ports: Mutex::new(HashMap::new()),
         }
     }
 
@@ -149,7 +157,7 @@ impl VmManager {
         // Configure the microVM
         let gateway = self.ip_pool.gateway();
         let boot_args = format!(
-            "console=ttyS0 reboot=k panic=1 ip={}::{}:{}::eth0:off",
+            "console=ttyS0 reboot=k panic=1 root=/dev/vda rw ip={}::{}:{}::eth0:off",
             vm_ip, gateway, self.ip_pool.netmask()
         );
 
@@ -184,9 +192,38 @@ impl VmManager {
         // Store active VM handle
         self.active_vms.lock().await.insert(vm_id, fc);
 
+        // Allocate a public SSH port and set up NAT port forwarding
+        let public_ssh_port = {
+            let mut port = self.next_ssh_port.lock().await;
+            let assigned = *port;
+            *port += 1;
+            assigned
+        };
+
+        // Set up DNAT: public_ip:public_ssh_port → vm_ip:22
+        if let Err(e) = tap::setup_port_forward(
+            &self.config.host_iface,
+            public_ssh_port,
+            vm_ip,
+        )
+        .await
+        {
+            warn!(vm_id = %vm_id, error = %e, "Failed to set up port forwarding (non-fatal)");
+        }
+
+        self.vm_ports.lock().await.insert(vm_id, public_ssh_port);
+
+        let ssh_host = if self.config.public_ip != "0.0.0.0" {
+            self.config.public_ip.clone()
+        } else {
+            vm_ip_str.clone()
+        };
+
         info!(
             vm_id = %vm_id,
             ip = %vm_ip,
+            ssh_host = %ssh_host,
+            ssh_port = public_ssh_port,
             vcpus = req.vcpus,
             ram_mb = req.ram_mb,
             "MicroVM provisioned"
@@ -195,7 +232,8 @@ impl VmManager {
         Ok(ProvisionResult {
             vm_id,
             ip: vm_ip_str,
-            ssh_port: 22,
+            ssh_port: public_ssh_port,
+            ssh_host,
             expires_at,
             ssh_private_key,
         })
@@ -228,6 +266,17 @@ impl VmManager {
         // Destroy TAP device
         if let Some(ref tap_name) = vm.tap_device {
             tap::destroy_tap(tap_name).await.ok();
+        }
+
+        // Remove port forwarding
+        if let Some(port) = self.vm_ports.lock().await.remove(vm_id) {
+            if let Some(ref ip) = vm.ip_addr {
+                if let Ok(addr) = ip.parse() {
+                    tap::remove_port_forward(&self.config.host_iface, port, addr)
+                        .await
+                        .ok();
+                }
+            }
         }
 
         // Release IP

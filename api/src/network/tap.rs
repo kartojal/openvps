@@ -116,6 +116,88 @@ pub async fn setup_bridge(
     Ok(())
 }
 
+/// Set up DNAT port forwarding: public_ip:public_port → vm_ip:22
+pub async fn setup_port_forward(
+    host_iface: &str,
+    public_port: u16,
+    vm_ip: Ipv4Addr,
+) -> Result<()> {
+    let dnat_target = format!("{}:22", vm_ip);
+    let port_str = public_port.to_string();
+
+    // DNAT: incoming traffic on public_port → vm_ip:22
+    run_cmd(
+        "iptables",
+        &[
+            "-t", "nat", "-A", "PREROUTING",
+            "-i", host_iface,
+            "-p", "tcp",
+            "--dport", &port_str,
+            "-j", "DNAT",
+            "--to-destination", &dnat_target,
+        ],
+    )
+    .await?;
+
+    // Allow forwarded traffic to the VM
+    let vm_ip_str = vm_ip.to_string();
+    run_cmd(
+        "iptables",
+        &[
+            "-A", "FORWARD",
+            "-p", "tcp",
+            "-d", &vm_ip_str,
+            "--dport", "22",
+            "-j", "ACCEPT",
+        ],
+    )
+    .await?;
+
+    info!(public_port, vm_ip = %vm_ip, "Port forward configured");
+    Ok(())
+}
+
+/// Remove DNAT port forwarding rules for a VM.
+pub async fn remove_port_forward(
+    host_iface: &str,
+    public_port: u16,
+    vm_ip: Ipv4Addr,
+) -> Result<()> {
+    let dnat_target = format!("{}:22", vm_ip);
+    let port_str = public_port.to_string();
+    let vm_ip_str = vm_ip.to_string();
+
+    run_cmd(
+        "iptables",
+        &[
+            "-t", "nat", "-D", "PREROUTING",
+            "-i", host_iface,
+            "-p", "tcp",
+            "--dport", &port_str,
+            "-j", "DNAT",
+            "--to-destination", &dnat_target,
+        ],
+    )
+    .await
+    .ok();
+
+    run_cmd(
+        "iptables",
+        &[
+            "-D", "FORWARD",
+            "-p", "tcp",
+            "-d", &vm_ip_str,
+            "--dport", "22",
+            "-j", "ACCEPT",
+        ],
+    )
+    .await
+    .ok();
+
+    info!(public_port, vm_ip = %vm_ip, "Port forward removed");
+    Ok(())
+}
+
 /// Generate a unique MAC address for a VM based on its IP.
 pub fn generate_mac(vm_ip: Ipv4Addr) -> String {
     let octets = vm_ip.octets();

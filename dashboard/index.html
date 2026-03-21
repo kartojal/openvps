@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPP Hosting — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-root: #08080b;
+  --bg-surface: #101016;
+  --bg-card: #16161f;
+  --bg-card-hover: #1c1c28;
+  --bg-elevated: #1f1f2c;
+  --border: #25253a;
+  --border-subtle: #1a1a2a;
+
+  --text-primary: #e8e8ec;
+  --text-secondary: #9898a8;
+  --text-muted: #5c5c72;
+
+  --accent: #d4a026;
+  --accent-dim: rgba(212, 160, 38, 0.12);
+  --accent-glow: rgba(212, 160, 38, 0.25);
+
+  --success: #2dd4a0;
+  --success-dim: rgba(45, 212, 160, 0.12);
+  --warning: #f0a030;
+  --warning-dim: rgba(240, 160, 48, 0.12);
+  --error: #f06060;
+  --error-dim: rgba(240, 96, 96, 0.12);
+  --info: #60a0f0;
+  --info-dim: rgba(96, 160, 240, 0.12);
+
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --sidebar-w: 220px;
+  --header-h: 56px;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-root);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Noise texture overlay ─── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.sidebar-brand {
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-brand .logo {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent) 0%, #b8860f 100%);
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: #000;
+}
+
+.sidebar-brand span {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.sidebar-brand .tag {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-section {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 16px 10px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  position: relative;
+}
+
+.nav-item:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  opacity: 0.8;
+}
+
+.nav-item.active .nav-icon { opacity: 1; }
+
+.sidebar-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.sidebar-footer span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ─── Main ─── */
+.main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+}
+
+.header {
+  height: var(--header-h);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+}
+
+.header-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-time {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.header-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--success);
+  background: var(--success-dim);
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-badge::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ─── Page sections ─── */
+.page {
+  display: none;
+  padding: 24px 28px 40px;
+  animation: fadeIn 0.25s ease;
+}
+
+.page.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Stat cards ─── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.stat-card:hover {
+  border-color: var(--border);
+}
+
+.stat-card .label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-family: var(--font-mono);
+}
+
+.stat-card .value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.stat-card .sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  font-family: var(--font-mono);
+}
+
+.stat-card .sub .up { color: var(--success); }
+.stat-card .sub .down { color: var(--error); }
+
+.stat-card .glow {
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  filter: blur(30px);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.stat-card.revenue .value { color: var(--accent); }
+.stat-card.revenue .glow { background: var(--accent); }
+.stat-card.active-vms .value { color: var(--success); }
+.stat-card.active-vms .glow { background: var(--success); }
+.stat-card.total-vms .value { color: var(--info); }
+.stat-card.total-vms .glow { background: var(--info); }
+.stat-card.ip-pool .value { color: var(--warning); }
+.stat-card.ip-pool .glow { background: var(--warning); }
+.stat-card.failed .value { color: var(--error); }
+.stat-card.failed .glow { background: var(--error); }
+
+/* ─── Panel grid ─── */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.panels.three-col {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.panel.full { grid-column: 1 / -1; }
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title .icon { font-size: 14px; opacity: 0.6; }
+
+.panel-action {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  border: none;
+  transition: background 0.15s;
+}
+
+.panel-action:hover { background: var(--accent-glow); }
+
+.panel-body { padding: 18px 20px; }
+.panel-body.no-pad { padding: 0; }
+
+/* ─── Tables ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+}
+
+.data-table td {
+  padding: 11px 16px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.data-table tr { transition: background 0.1s; }
+.data-table tbody tr:hover { background: var(--bg-card-hover); }
+.data-table tbody tr.clickable { cursor: pointer; }
+
+/* ─── Status badges ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge.running { color: var(--success); background: var(--success-dim); }
+.badge.pending { color: var(--warning); background: var(--warning-dim); }
+.badge.terminated { color: var(--text-muted); background: rgba(92, 92, 114, 0.12); }
+.badge.failed { color: var(--error); background: var(--error-dim); }
+
+/* ─── Mono text ─── */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0;
+}
+
+.mono.dim { color: var(--text-muted); }
+.mono.accent { color: var(--accent); }
+.mono.sm { font-size: 10.5px; }
+
+/* ─── Buttons ─── */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-danger {
+  color: var(--error);
+  background: var(--error-dim);
+  border-color: rgba(240, 96, 96, 0.2);
+}
+
+.btn-danger:hover {
+  background: rgba(240, 96, 96, 0.2);
+}
+
+.btn-ghost {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* ─── Chart container ─── */
+.chart-wrap {
+  position: relative;
+  height: 220px;
+}
+
+/* ─── IP Pool visual ─── */
+.ip-pool-bar {
+  height: 32px;
+  background: var(--bg-surface);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.ip-pool-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--warning) 100%);
+  border-radius: 6px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+}
+
+.ip-pool-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+}
+
+.ip-stats {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ip-stats strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ─── Health indicators ─── */
+.health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.health-item {
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.health-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.health-dot.ok { background: var(--success); box-shadow: 0 0 10px rgba(45, 212, 160, 0.4); }
+.health-dot.warn { background: var(--warning); box-shadow: 0 0 10px rgba(240, 160, 48, 0.4); }
+.health-dot.err { background: var(--error); box-shadow: 0 0 10px rgba(240, 96, 96, 0.4); }
+
+.health-info { flex: 1; }
+
+.health-label {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.health-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ─── Modal ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 4, 6, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: none;
+  place-items: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-overlay.open { display: grid; }
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 580px;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: modalIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-head h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.modal-close {
+  width: 28px; height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s;
+}
+
+.modal-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+.modal-body { padding: 20px 24px; }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.detail-item { }
+
+.detail-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  font-size: 13px;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.detail-value a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.detail-value a:hover { text-decoration: underline; }
+
+.detail-item.full { grid-column: 1 / -1; }
+
+.detail-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── Responsive ─── */
+@media (max-width: 1200px) {
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
+  .panels { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Sidebar ─── -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo">M</div>
+    <span>mpp-hosting</span>
+    <div class="tag">Admin</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Monitor</div>
+    <div class="nav-item active" data-page="overview">
+      <span class="nav-icon">&#9632;</span> Overview
+    </div>
+    <div class="nav-item" data-page="vms">
+      <span class="nav-icon">&#9654;</span> Virtual Machines
+    </div>
+    <div class="nav-item" data-page="payments">
+      <span class="nav-icon">&#9830;</span> Payments
+    </div>
+    <div class="nav-section">Infrastructure</div>
+    <div class="nav-item" data-page="network">
+      <span class="nav-icon">&#8728;</span> Network
+    </div>
+    <div class="nav-item" data-page="health">
+      <span class="nav-icon">&#9672;</span> System Health
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="status-dot"></div>
+    <span>API Connected</span>
+  </div>
+</aside>
+
+<!-- ─── Main ─── -->
+<div class="main">
+  <header class="header">
+    <div class="header-title" id="pageTitle">Overview</div>
+    <div class="header-right">
+      <span class="header-time" id="headerTime"></span>
+      <div class="header-badge">Operational</div>
+    </div>
+  </header>
+
+  <!-- ═══ OVERVIEW ═══ -->
+  <section class="page active" id="page-overview">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9830;</span> Revenue — 30 Days</div>
+        </div>
+        <div class="panel-body">
+          <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9654;</span> Recent VMs</div>
+          <button class="panel-action" onclick="navigate('vms')">View All</button>
+        </div>
+        <div class="panel-body no-pad">
+          <table class="data-table" id="recentVmsTable">
+            <thead><tr>
+              <th>ID</th><th>Status</th><th>Specs</th><th>Expires</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ VMS ═══ -->
+  <section class="page" id="page-vms">
+    <div class="panel full">
+      <div class="panel-header">
+        <div class="panel-title"><span class="icon">&#9654;</span> All Virtual Machines</div>
+        <span class="mono dim" id="vmCount"></span>
+      </div>
+      <div class="panel-body no-pad" style="max-height: 70vh; overflow-y: auto;">
+        <table class="data-table" id="allVmsTable">
+          <thead><tr>
+            <th>VM ID</th><th>Status</th><th>Image</th><th>vCPU</th><th>RAM</th><th>Disk</th><th>IP Address</th><th>Created</th><th>Expires</th><th>Actions</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PAYMENTS ═══ -->
+  <section class="page" id="page-payments">
+    <div class="stats-row" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
+      <div class="stat-card revenue">
+        <div class="glow"></div>
+        <div class="label">Total Earnings</div>
+        <div class="value" id="totalEarnings">—</div>
+        <div class="sub">Lifetime revenue</div>
+      </div>
+      <div class="stat-card" style="--c: var(--info);">
+        <div class="label">Total Transactions</div>
+        <div class="value" id="totalTx" style="color: var(--info);">—</div>
+        <div class="sub">Verified payments</div>
+      </div>
+      <div class="stat-card" style="--c: var(--success);">
+        <div class="label">Avg Payment</div>
+        <div class="value" id="avgPayment" style="color: var(--success);">—</div>
+        <div class="sub">Per provision</div>
+      </div>
+    </div>
+    <div class="panels">
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9830;</span> Revenue Chart</div>
+        </div>
+        <div class="panel-body">
+          <div class="chart-wrap"><canvas id="revenueChartFull"></canvas></div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9830;</span> Transaction History</div>
+        </div>
+        <div class="panel-body no-pad">
+          <table class="data-table" id="txTable">
+            <thead><tr>
+              <th>TX Hash</th><th>Amount</th><th>VM ID</th><th>Timestamp</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ NETWORK ═══ -->
+  <section class="page" id="page-network">
+    <div class="panels" style="grid-template-columns: 1fr 1fr;">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#8728;</span> IP Pool — 172.16.0.0/16</div>
+        </div>
+        <div class="panel-body">
+          <div class="ip-pool-bar"><div class="ip-pool-fill" id="ipPoolFill"></div></div>
+          <div class="ip-stats">
+            <span>Allocated: <strong id="ipAllocated">—</strong></span>
+            <span>Available: <strong id="ipAvailable">—</strong></span>
+            <span>Total: <strong>65,534</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9672;</span> Subnet Info</div>
+        </div>
+        <div class="panel-body">
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-label">CIDR</div><div class="detail-value mono">172.16.0.0/16</div></div>
+            <div class="detail-item"><div class="detail-label">Gateway</div><div class="detail-value mono">172.16.0.1</div></div>
+            <div class="detail-item"><div class="detail-label">Netmask</div><div class="detail-value mono">255.255.0.0</div></div>
+            <div class="detail-item"><div class="detail-label">Bridge</div><div class="detail-value mono">mpp-br0</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#8728;</span> Active IP Allocations</div>
+        </div>
+        <div class="panel-body no-pad">
+          <table class="data-table" id="ipTable">
+            <thead><tr>
+              <th>IP Address</th><th>VM ID</th><th>Status</th><th>Allocated At</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ HEALTH ═══ -->
+  <section class="page" id="page-health">
+    <div class="panels" style="grid-template-columns: 1fr 1fr;">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9672;</span> Services</div>
+        </div>
+        <div class="panel-body">
+          <div class="health-grid" id="healthServices"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9632;</span> Resources</div>
+        </div>
+        <div class="panel-body">
+          <div class="health-grid" id="healthResources"></div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title"><span class="icon">&#9654;</span> Firecracker Processes</div>
+        </div>
+        <div class="panel-body no-pad">
+          <table class="data-table" id="processTable">
+            <thead><tr>
+              <th>PID</th><th>VM ID</th><th>Socket</th><th>Uptime</th><th>Status</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ─── VM Detail Modal ─── -->
+<div class="modal-overlay" id="vmModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">VM Details</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  API Layer — swap mock for real endpoints
+// ═══════════════════════════════════════════
+
+const API_BASE = 'http://localhost:8402';
+const USE_MOCK = true; // flip to false when API is live
+
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function randomTxHash() {
+  return '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
+}
+
+function hoursAgo(h) { return new Date(Date.now() - h * 3600000).toISOString(); }
+function hoursFromNow(h) { return new Date(Date.now() + h * 3600000).toISOString(); }
+
+// Generate deterministic mock data
+const MOCK_VMS = [
+  { id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', status: 'running', vcpus: 2, ram_mb: 2048, disk_gb: 20, image: 'ubuntu-24.04', ip_addr: '172.16.0.2', ssh_port: 22, tap_device: 'tapa1b2c3d4', socket_path: '/var/lib/mpp/vm/a1b2c3d4.sock', pid: 48291, payment_tx: randomTxHash(), price_micro: 28400, created_at: hoursAgo(18), expires_at: hoursFromNow(6), terminated_at: null },
+  { id: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', status: 'running', vcpus: 4, ram_mb: 8192, disk_gb: 50, image: 'ubuntu-24.04', ip_addr: '172.16.0.3', ssh_port: 22, tap_device: 'tapb2c3d4e5', socket_path: '/var/lib/mpp/vm/b2c3d4e5.sock', pid: 48305, payment_tx: randomTxHash(), price_micro: 156000, created_at: hoursAgo(12), expires_at: hoursFromNow(12), terminated_at: null },
+  { id: 'c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f', status: 'running', vcpus: 1, ram_mb: 512, disk_gb: 10, image: 'ubuntu-24.04', ip_addr: '172.16.0.4', ssh_port: 22, tap_device: 'tapc3d4e5f6', socket_path: '/var/lib/mpp/vm/c3d4e5f6.sock', pid: 48410, payment_tx: randomTxHash(), price_micro: 7200, created_at: hoursAgo(6), expires_at: hoursFromNow(18), terminated_at: null },
+  { id: 'd4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80', status: 'running', vcpus: 8, ram_mb: 16384, disk_gb: 100, image: 'ubuntu-24.04', ip_addr: '172.16.0.5', ssh_port: 22, tap_device: 'tapd4e5f6a7', socket_path: '/var/lib/mpp/vm/d4e5f6a7.sock', pid: 48522, payment_tx: randomTxHash(), price_micro: 432000, created_at: hoursAgo(3), expires_at: hoursFromNow(21), terminated_at: null },
+  { id: 'e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8091', status: 'running', vcpus: 2, ram_mb: 4096, disk_gb: 30, image: 'ubuntu-24.04', ip_addr: '172.16.0.6', ssh_port: 22, tap_device: 'tape5f6a7b8', socket_path: '/var/lib/mpp/vm/e5f6a7b8.sock', pid: 48601, payment_tx: randomTxHash(), price_micro: 52000, created_at: hoursAgo(9), expires_at: hoursFromNow(15), terminated_at: null },
+  { id: 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f809102', status: 'running', vcpus: 1, ram_mb: 1024, disk_gb: 10, image: 'ubuntu-24.04', ip_addr: '172.16.0.7', ssh_port: 22, tap_device: 'tapf6a7b8c9', socket_path: '/var/lib/mpp/vm/f6a7b8c9.sock', pid: 48690, payment_tx: randomTxHash(), price_micro: 12800, created_at: hoursAgo(2), expires_at: hoursFromNow(22), terminated_at: null },
+  { id: '07b8c9d0-e1f2-4a3b-4c5d-6e7f80910213', status: 'running', vcpus: 2, ram_mb: 2048, disk_gb: 20, image: 'ubuntu-24.04', ip_addr: '172.16.0.8', ssh_port: 22, tap_device: 'tap07b8c9d0', socket_path: '/var/lib/mpp/vm/07b8c9d0.sock', pid: 48755, payment_tx: randomTxHash(), price_micro: 28400, created_at: hoursAgo(1), expires_at: hoursFromNow(23), terminated_at: null },
+  { id: '18c9d0e1-f2a3-4b4c-5d6e-7f8091021324', status: 'pending', vcpus: 4, ram_mb: 4096, disk_gb: 40, image: 'ubuntu-24.04', ip_addr: null, ssh_port: null, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 88000, created_at: hoursAgo(0.1), expires_at: hoursFromNow(23.9), terminated_at: null },
+  { id: '29d0e1f2-a3b4-4c5d-6e7f-809102132435', status: 'pending', vcpus: 1, ram_mb: 512, disk_gb: 10, image: 'ubuntu-24.04', ip_addr: null, ssh_port: null, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 7200, created_at: hoursAgo(0.05), expires_at: hoursFromNow(23.95), terminated_at: null },
+  { id: '3ae1f2a3-b4c5-4d6e-7f80-910213243546', status: 'terminated', vcpus: 2, ram_mb: 2048, disk_gb: 20, image: 'ubuntu-24.04', ip_addr: '172.16.0.10', ssh_port: 22, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 28400, created_at: hoursAgo(72), expires_at: hoursAgo(48), terminated_at: hoursAgo(48) },
+  { id: '4bf2a3b4-c5d6-4e7f-8091-021324354657', status: 'terminated', vcpus: 4, ram_mb: 8192, disk_gb: 50, image: 'ubuntu-24.04', ip_addr: '172.16.0.11', ssh_port: 22, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 156000, created_at: hoursAgo(96), expires_at: hoursAgo(72), terminated_at: hoursAgo(72) },
+  { id: '5ca3b4c5-d6e7-4f80-9102-132435465768', status: 'terminated', vcpus: 1, ram_mb: 512, disk_gb: 10, image: 'ubuntu-24.04', ip_addr: '172.16.0.12', ssh_port: 22, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 7200, created_at: hoursAgo(48), expires_at: hoursAgo(24), terminated_at: hoursAgo(24) },
+  { id: '6db4c5d6-e7f8-4091-0213-243546576879', status: 'failed', vcpus: 2, ram_mb: 4096, disk_gb: 30, image: 'ubuntu-24.04', ip_addr: null, ssh_port: null, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 52000, created_at: hoursAgo(36), expires_at: hoursAgo(12), terminated_at: hoursAgo(36) },
+  { id: '7ec5d6e7-f809-4102-1324-35465768798a', status: 'terminated', vcpus: 8, ram_mb: 16384, disk_gb: 100, image: 'ubuntu-24.04', ip_addr: '172.16.0.14', ssh_port: 22, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 432000, created_at: hoursAgo(120), expires_at: hoursAgo(96), terminated_at: hoursAgo(96) },
+  { id: '8fd6e7f8-0910-4213-2435-4657687989ab', status: 'failed', vcpus: 1, ram_mb: 256, disk_gb: 5, image: 'ubuntu-24.04', ip_addr: null, ssh_port: null, tap_device: null, socket_path: null, pid: null, payment_tx: randomTxHash(), price_micro: 3600, created_at: hoursAgo(5), expires_at: hoursFromNow(19), terminated_at: hoursAgo(5) },
+];
+
+const api = {
+  async getHealth() {
+    if (USE_MOCK) return { status: 'ok', service: 'mpp-hosting', version: '0.1.0' };
+    const r = await fetch(`${API_BASE}/health`);
+    return r.json();
+  },
+  async getVMs() {
+    if (USE_MOCK) return MOCK_VMS;
+    // In production, this would hit an admin endpoint
+    const r = await fetch(`${API_BASE}/v1/admin/vms`);
+    return r.json();
+  },
+  async getVM(id) {
+    if (USE_MOCK) return MOCK_VMS.find(v => v.id === id);
+    const r = await fetch(`${API_BASE}/v1/vms/${id}`);
+    return r.json();
+  },
+  async terminateVM(id) {
+    if (USE_MOCK) {
+      const vm = MOCK_VMS.find(v => v.id === id);
+      if (vm) { vm.status = 'terminated'; vm.terminated_at = new Date().toISOString(); }
+      return { status: 'terminated', vm_id: id };
+    }
+    const r = await fetch(`${API_BASE}/v1/vms/${id}`, { method: 'DELETE' });
+    return r.json();
+  }
+};
+
+// ═══════════════════════════════════════════
+//  Navigation
+// ═══════════════════════════════════════════
+
+const pageTitles = {
+  overview: 'Overview',
+  vms: 'Virtual Machines',
+  payments: 'Payments',
+  network: 'Network',
+  health: 'System Health'
+};
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[page];
+  if (page === 'vms') renderAllVMs();
+  if (page === 'payments') renderPayments();
+  if (page === 'network') renderNetwork();
+  if (page === 'health') renderHealth();
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => navigate(item.dataset.page));
+});
+
+// ═══════════════════════════════════════════
+//  Utilities
+// ═══════════════════════════════════════════
+
+function microToUSD(micro) { return (micro / 1000000).toFixed(2); }
+function microToUSDDisplay(micro) { return `$${microToUSD(micro)}`; }
+function shortId(id) { return id.split('-')[0]; }
+function shortTx(tx) { return tx ? tx.slice(0, 10) + '...' + tx.slice(-6) : '—'; }
+
+function timeAgo(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function timeRemaining(iso) {
+  if (!iso) return '—';
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return 'Expired';
+  const hrs = Math.floor(diff / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+// ═══════════════════════════════════════════
+//  Overview Page
+// ═══════════════════════════════════════════
+
+async function renderOverview() {
+  const vms = await api.getVMs();
+  const running = vms.filter(v => v.status === 'running');
+  const failed = vms.filter(v => v.status === 'failed');
+  const totalRevenue = vms.reduce((s, v) => s + v.price_micro, 0);
+  const allocatedIPs = running.length + vms.filter(v => v.status === 'pending').length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card revenue">
+      <div class="glow"></div>
+      <div class="label">Total Revenue</div>
+      <div class="value">${microToUSDDisplay(totalRevenue)}</div>
+      <div class="sub"><span class="up">+12.4%</span> vs last 30d</div>
+    </div>
+    <div class="stat-card active-vms">
+      <div class="glow"></div>
+      <div class="label">Active VMs</div>
+      <div class="value">${running.length}</div>
+      <div class="sub">${vms.filter(v => v.status === 'pending').length} pending</div>
+    </div>
+    <div class="stat-card total-vms">
+      <div class="glow"></div>
+      <div class="label">Total VMs</div>
+      <div class="value">${vms.length}</div>
+      <div class="sub">All time</div>
+    </div>
+    <div class="stat-card ip-pool">
+      <div class="glow"></div>
+      <div class="label">IPs Allocated</div>
+      <div class="value">${allocatedIPs}</div>
+      <div class="sub">of 65,534 available</div>
+    </div>
+    <div class="stat-card failed">
+      <div class="glow"></div>
+      <div class="label">Failed</div>
+      <div class="value">${failed.length}</div>
+      <div class="sub">Requires attention</div>
+    </div>
+  `;
+
+  // Recent VMs
+  const recent = [...vms].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
+  const tbody = document.querySelector('#recentVmsTable tbody');
+  tbody.innerHTML = recent.map(vm => `
+    <tr class="clickable" onclick="showVmDetail('${vm.id}')">
+      <td><span class="mono">${shortId(vm.id)}</span></td>
+      <td><span class="badge ${vm.status}">${vm.status}</span></td>
+      <td><span class="mono sm dim">${vm.vcpus}c / ${vm.ram_mb}MB / ${vm.disk_gb}GB</span></td>
+      <td><span class="mono sm dim">${vm.status === 'running' ? timeRemaining(vm.expires_at) : '—'}</span></td>
+    </tr>
+  `).join('');
+
+  renderRevenueChart('revenueChart');
+}
+
+// ═══════════════════════════════════════════
+//  Revenue Chart
+// ═══════════════════════════════════════════
+
+let chartInstances = {};
+
+function renderRevenueChart(canvasId) {
+  if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+  const ctx = document.getElementById(canvasId).getContext('2d');
+
+  const labels = [];
+  const data = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    data.push(Math.floor(Math.random() * 80000 + 20000 + (30 - i) * 3000));
+  }
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+  gradient.addColorStop(0, 'rgba(212, 160, 38, 0.2)');
+  gradient.addColorStop(1, 'rgba(212, 160, 38, 0)');
+
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: '#d4a026',
+        borderWidth: 2,
+        backgroundColor: gradient,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#d4a026',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1f1f2c',
+          titleColor: '#9898a8',
+          bodyColor: '#e8e8ec',
+          borderColor: '#25253a',
+          borderWidth: 1,
+          titleFont: { family: 'JetBrains Mono', size: 10 },
+          bodyFont: { family: 'JetBrains Mono', size: 12 },
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            label: (ctx) => `$${(ctx.raw / 1000000).toFixed(4)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#5c5c72', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 8 },
+          grid: { color: 'rgba(37, 37, 58, 0.5)', drawBorder: false }
+        },
+        y: {
+          ticks: {
+            color: '#5c5c72',
+            font: { family: 'JetBrains Mono', size: 9 },
+            callback: v => '$' + (v / 1000000).toFixed(2)
+          },
+          grid: { color: 'rgba(37, 37, 58, 0.5)', drawBorder: false }
+        }
+      },
+      interaction: { intersect: false, mode: 'index' }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+//  All VMs Page
+// ═══════════════════════════════════════════
+
+async function renderAllVMs() {
+  const vms = await api.getVMs();
+  const sorted = [...vms].sort((a, b) => {
+    const order = { running: 0, pending: 1, failed: 2, terminated: 3 };
+    return (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  document.getElementById('vmCount').textContent = `${vms.length} total`;
+
+  const tbody = document.querySelector('#allVmsTable tbody');
+  tbody.innerHTML = sorted.map(vm => `
+    <tr class="clickable" onclick="showVmDetail('${vm.id}')">
+      <td><span class="mono">${shortId(vm.id)}</span></td>
+      <td><span class="badge ${vm.status}">${vm.status}</span></td>
+      <td><span class="mono sm dim">${vm.image}</span></td>
+      <td><span class="mono">${vm.vcpus}</span></td>
+      <td><span class="mono">${vm.ram_mb} MB</span></td>
+      <td><span class="mono">${vm.disk_gb} GB</span></td>
+      <td><span class="mono dim">${vm.ip_addr || '—'}</span></td>
+      <td><span class="mono sm dim">${timeAgo(vm.created_at)}</span></td>
+      <td><span class="mono sm ${vm.status === 'running' ? 'accent' : 'dim'}">${vm.status === 'running' ? timeRemaining(vm.expires_at) : '—'}</span></td>
+      <td>
+        ${vm.status === 'running' ? `<button class="btn btn-danger" onclick="event.stopPropagation(); terminateVM('${vm.id}')">Terminate</button>` : ''}
+        ${vm.status !== 'running' ? `<button class="btn btn-ghost" onclick="event.stopPropagation(); showVmDetail('${vm.id}')">Details</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//  VM Detail Modal
+// ═══════════════════════════════════════════
+
+async function showVmDetail(id) {
+  const vm = await api.getVM(id);
+  if (!vm) return;
+
+  document.getElementById('modalTitle').textContent = `VM ${shortId(vm.id)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="detail-grid">
+      <div class="detail-item full">
+        <div class="detail-label">VM ID</div>
+        <div class="detail-value mono">${vm.id}</div>
+      </div>
+      <div class="detail-divider"></div>
+      <div class="detail-item">
+        <div class="detail-label">Status</div>
+        <div class="detail-value"><span class="badge ${vm.status}">${vm.status}</span></div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Image</div>
+        <div class="detail-value mono">${vm.image}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">vCPUs</div>
+        <div class="detail-value mono">${vm.vcpus}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">RAM</div>
+        <div class="detail-value mono">${vm.ram_mb} MB</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Disk</div>
+        <div class="detail-value mono">${vm.disk_gb} GB</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Price</div>
+        <div class="detail-value mono accent">${microToUSDDisplay(vm.price_micro)}</div>
+      </div>
+      <div class="detail-divider"></div>
+      <div class="detail-item">
+        <div class="detail-label">IP Address</div>
+        <div class="detail-value mono">${vm.ip_addr || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">SSH Port</div>
+        <div class="detail-value mono">${vm.ssh_port || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">TAP Device</div>
+        <div class="detail-value mono">${vm.tap_device || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">PID</div>
+        <div class="detail-value mono">${vm.pid || '—'}</div>
+      </div>
+      <div class="detail-item full">
+        <div class="detail-label">Socket Path</div>
+        <div class="detail-value mono" style="font-size: 11px;">${vm.socket_path || '—'}</div>
+      </div>
+      <div class="detail-divider"></div>
+      <div class="detail-item full">
+        <div class="detail-label">Payment TX</div>
+        <div class="detail-value mono" style="font-size: 11px;">
+          ${vm.payment_tx ? `<a href="https://explorer.tempo.network/tx/${vm.payment_tx}" target="_blank">${vm.payment_tx}</a>` : '—'}
+        </div>
+      </div>
+      <div class="detail-divider"></div>
+      <div class="detail-item">
+        <div class="detail-label">Created</div>
+        <div class="detail-value mono sm">${formatDate(vm.created_at)}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Expires</div>
+        <div class="detail-value mono sm">${formatDate(vm.expires_at)}</div>
+      </div>
+      ${vm.terminated_at ? `
+      <div class="detail-item full">
+        <div class="detail-label">Terminated</div>
+        <div class="detail-value mono sm">${formatDate(vm.terminated_at)}</div>
+      </div>` : ''}
+    </div>
+    ${vm.status === 'running' ? `
+    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-subtle); display: flex; gap: 10px;">
+      <button class="btn btn-danger" onclick="terminateVM('${vm.id}'); closeModal();">Terminate VM</button>
+    </div>` : ''}
+  `;
+
+  document.getElementById('vmModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('vmModal').classList.remove('open');
+}
+
+document.getElementById('vmModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ═══════════════════════════════════════════
+//  Terminate VM
+// ═══════════════════════════════════════════
+
+async function terminateVM(id) {
+  if (!confirm(`Terminate VM ${shortId(id)}?`)) return;
+  await api.terminateVM(id);
+  renderOverview();
+  if (document.getElementById('page-vms').classList.contains('active')) renderAllVMs();
+}
+
+// ═══════════════════════════════════════════
+//  Payments Page
+// ═══════════════════════════════════════════
+
+async function renderPayments() {
+  const vms = await api.getVMs();
+  const totalRevenue = vms.reduce((s, v) => s + v.price_micro, 0);
+  const paidVms = vms.filter(v => v.payment_tx);
+
+  document.getElementById('totalEarnings').textContent = microToUSDDisplay(totalRevenue);
+  document.getElementById('totalTx').textContent = paidVms.length;
+  document.getElementById('avgPayment').textContent = paidVms.length
+    ? microToUSDDisplay(Math.floor(totalRevenue / paidVms.length))
+    : '$0.00';
+
+  renderRevenueChart('revenueChartFull');
+
+  const sorted = [...paidVms].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  document.querySelector('#txTable tbody').innerHTML = sorted.map(vm => `
+    <tr>
+      <td><a href="https://explorer.tempo.network/tx/${vm.payment_tx}" target="_blank" class="mono accent" style="text-decoration:none; font-size:11.5px;">${shortTx(vm.payment_tx)}</a></td>
+      <td><span class="mono">${microToUSDDisplay(vm.price_micro)}</span></td>
+      <td><span class="mono dim">${shortId(vm.id)}</span></td>
+      <td><span class="mono sm dim">${formatDate(vm.created_at)}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//  Network Page
+// ═══════════════════════════════════════════
+
+async function renderNetwork() {
+  const vms = await api.getVMs();
+  const allocated = vms.filter(v => v.ip_addr && v.status === 'running');
+  const total = 65534;
+
+  document.getElementById('ipPoolFill').style.width = `${Math.max((allocated.length / total) * 100, 0.5)}%`;
+  document.getElementById('ipAllocated').textContent = allocated.length;
+  document.getElementById('ipAvailable').textContent = (total - allocated.length).toLocaleString();
+
+  document.querySelector('#ipTable tbody').innerHTML = allocated.map(vm => `
+    <tr>
+      <td><span class="mono">${vm.ip_addr}</span></td>
+      <td><span class="mono dim">${shortId(vm.id)}</span></td>
+      <td><span class="badge ${vm.status}">${vm.status}</span></td>
+      <td><span class="mono sm dim">${formatDate(vm.created_at)}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//  Health Page
+// ═══════════════════════════════════════════
+
+async function renderHealth() {
+  const vms = await api.getVMs();
+  const running = vms.filter(v => v.status === 'running');
+
+  document.getElementById('healthServices').innerHTML = `
+    <div class="health-item">
+      <div class="health-dot ok"></div>
+      <div class="health-info">
+        <div class="health-label">API Server</div>
+        <div class="health-value">axum v0.8 — :8402</div>
+      </div>
+    </div>
+    <div class="health-item">
+      <div class="health-dot ok"></div>
+      <div class="health-info">
+        <div class="health-label">SQLite Database</div>
+        <div class="health-value">Connected — WAL mode</div>
+      </div>
+    </div>
+    <div class="health-item">
+      <div class="health-dot ok"></div>
+      <div class="health-info">
+        <div class="health-label">Firecracker</div>
+        <div class="health-value">${running.length} active processes</div>
+      </div>
+    </div>
+    <div class="health-item">
+      <div class="health-dot ${running.length > 0 ? 'ok' : 'warn'}"></div>
+      <div class="health-info">
+        <div class="health-label">Network Bridge</div>
+        <div class="health-value">mpp-br0 — UP</div>
+      </div>
+    </div>
+  `;
+
+  const totalVcpu = running.reduce((s, v) => s + v.vcpus, 0);
+  const totalRam = running.reduce((s, v) => s + v.ram_mb, 0);
+  const totalDisk = running.reduce((s, v) => s + v.disk_gb, 0);
+
+  document.getElementById('healthResources').innerHTML = `
+    <div class="health-item">
+      <div class="health-dot ok"></div>
+      <div class="health-info">
+        <div class="health-label">vCPUs Allocated</div>
+        <div class="health-value">${totalVcpu} cores</div>
+      </div>
+    </div>
+    <div class="health-item">
+      <div class="health-dot ${totalRam > 32768 ? 'warn' : 'ok'}"></div>
+      <div class="health-info">
+        <div class="health-label">RAM Allocated</div>
+        <div class="health-value">${(totalRam / 1024).toFixed(1)} GB</div>
+      </div>
+    </div>
+    <div class="health-item">
+      <div class="health-dot ok"></div>
+      <div class="health-info">
+        <div class="health-label">Disk Allocated</div>
+        <div class="health-value">${totalDisk} GB</div>
+      </div>
+    </div>
+    <div class="health-item">
+      <div class="health-dot ok"></div>
+      <div class="health-info">
+        <div class="health-label">Cleanup Task</div>
+        <div class="health-value">Running — 30s interval</div>
+      </div>
+    </div>
+  `;
+
+  document.querySelector('#processTable tbody').innerHTML = running.map(vm => `
+    <tr>
+      <td><span class="mono">${vm.pid}</span></td>
+      <td><span class="mono dim">${shortId(vm.id)}</span></td>
+      <td><span class="mono sm dim">${vm.socket_path}</span></td>
+      <td><span class="mono sm">${timeAgo(vm.created_at).replace(' ago', '')}</span></td>
+      <td><span class="badge running">active</span></td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//  Clock & Init
+// ═══════════════════════════════════════════
+
+function updateClock() {
+  document.getElementById('headerTime').textContent = new Date().toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+renderOverview();
+</script>
+</body>
+</html>

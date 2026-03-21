@@ -51,6 +51,15 @@ pub struct Config {
     /// Price per GB disk per hour in microdollars
     pub price_disk_gb_hour_micro: u64,
 
+    /// Public IP address of the host (for NAT port forwarding)
+    pub public_ip: String,
+
+    /// Host network interface (for iptables rules)
+    pub host_iface: String,
+
+    /// Base port for SSH NAT forwarding (VMs get sequential ports starting here)
+    pub ssh_port_base: u16,
+
     /// x402 facilitator URL for payment verification and settlement
     pub x402_facilitator_url: String,
 
@@ -85,6 +94,9 @@ impl Config {
                 "0x20c0000000000000000000000000000000000000",
             ),
             chain_id: env_or("CHAIN_ID", "42431").parse()?,
+            public_ip: env_or("PUBLIC_IP", "0.0.0.0"),
+            host_iface: env_or("HOST_IFACE", "eth0"),
+            ssh_port_base: env_or("SSH_PORT_BASE", "2200").parse()?,
             price_vcpu_hour_micro: env_or("PRICE_VCPU_HOUR_MICRO", "5000")
                 .parse()?,
             price_ram_mb_hour_micro: env_or("PRICE_RAM_MB_HOUR_MICRO", "2")

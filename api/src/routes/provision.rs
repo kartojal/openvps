@@ -28,7 +28,9 @@ pub struct ProvisionInput {
 pub struct ProvisionOutput {
     pub vm_id: String,
     pub ip: String,
+    pub ssh_host: String,
     pub ssh_port: u16,
+    pub ssh_command: String,
     pub expires_at: String,
     pub status: String,
     pub ssh_private_key: String,
@@ -73,18 +75,26 @@ pub async fn provision(
     };
 
     match state.vm_manager.provision(req).await {
-        Ok(result) => (
-            StatusCode::CREATED,
-            Json(ProvisionOutput {
-                vm_id: result.vm_id.to_string(),
-                ip: result.ip,
-                ssh_port: result.ssh_port,
-                expires_at: result.expires_at.to_rfc3339(),
-                status: "running".to_string(),
-                ssh_private_key: result.ssh_private_key,
-            }),
-        )
-            .into_response(),
+        Ok(result) => {
+            let ssh_command = format!(
+                "ssh -p {} -i vm_key root@{}",
+                result.ssh_port, result.ssh_host
+            );
+            (
+                StatusCode::CREATED,
+                Json(ProvisionOutput {
+                    vm_id: result.vm_id.to_string(),
+                    ip: result.ip,
+                    ssh_host: result.ssh_host,
+                    ssh_port: result.ssh_port,
+                    ssh_command,
+                    expires_at: result.expires_at.to_rfc3339(),
+                    status: "running".to_string(),
+                    ssh_private_key: result.ssh_private_key,
+                }),
+            )
+                .into_response()
+        }
         Err(e) => {
             error!(error = %e, "Provision failed");
             (
