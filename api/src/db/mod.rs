@@ -218,6 +218,48 @@ impl Database {
         Ok(vms)
     }
 
+    pub fn list_running_vms(&self) -> Result<Vec<VmRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, status, vcpus, ram_mb, disk_gb, image, ip_addr, ssh_port,
+             tap_device, socket_path, pid, payment_tx, price_micro, created_at, expires_at, terminated_at
+             FROM vms WHERE status = 'running'",
+        )?;
+
+        let vms = stmt
+            .query_map([], |row| {
+                Ok(VmRecord {
+                    id: row.get::<_, String>(0)?.parse().unwrap(),
+                    status: VmStatus::from_str(&row.get::<_, String>(1)?),
+                    vcpus: row.get(2)?,
+                    ram_mb: row.get(3)?,
+                    disk_gb: row.get(4)?,
+                    image: row.get(5)?,
+                    ip_addr: row.get(6)?,
+                    ssh_port: row.get(7)?,
+                    tap_device: row.get(8)?,
+                    socket_path: row.get(9)?,
+                    pid: row.get(10)?,
+                    payment_tx: row.get(11)?,
+                    price_micro: row.get(12)?,
+                    created_at: row
+                        .get::<_, String>(13)?
+                        .parse::<DateTime<Utc>>()
+                        .unwrap(),
+                    expires_at: row
+                        .get::<_, String>(14)?
+                        .parse::<DateTime<Utc>>()
+                        .unwrap(),
+                    terminated_at: row
+                        .get::<_, Option<String>>(15)?
+                        .and_then(|s| s.parse::<DateTime<Utc>>().ok()),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(vms)
+    }
+
     pub fn allocate_ip(&self, ip_addr: &str, vm_id: &Uuid) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(

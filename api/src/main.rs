@@ -67,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // Health check (no payment required)
         .route("/health", get(routes::health::health))
+        .route("/status", get(routes::health::status))
         // Provision endpoint (MPP payment gated)
         .route(
             "/v1/provision",

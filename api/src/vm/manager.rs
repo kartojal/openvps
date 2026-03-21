@@ -318,4 +318,13 @@ impl VmManager {
     pub fn get_vm(&self, vm_id: &Uuid) -> Result<Option<VmRecord>> {
         self.db.get_vm(vm_id)
     }
+
+    /// Get running VM stats: (count, total_vcpus, total_ram_mb).
+    pub fn running_stats(&self) -> Result<(u32, u32, u32)> {
+        let running = self.db.list_running_vms()?;
+        let count = running.len() as u32;
+        let vcpus: u32 = running.iter().map(|v| v.vcpus).sum();
+        let ram: u32 = running.iter().map(|v| v.ram_mb).sum();
+        Ok((count, vcpus, ram))
+    }
 }
