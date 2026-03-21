@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::config::Config;
 use crate::db::models::{VmRecord, VmStatus};
 use crate::db::Database;
-use crate::firecracker::client::{cleanup_vm_dir, prepare_rootfs, FirecrackerVm};
+use crate::firecracker::client::{cleanup_vm_dir, inject_ssh_key, prepare_rootfs, FirecrackerVm};
 use crate::network::ip_pool::IpPool;
 use crate::network::tap;
 
@@ -32,6 +32,7 @@ pub struct ProvisionResult {
     pub ip: String,
     pub ssh_port: u16,
     pub expires_at: chrono::DateTime<Utc>,
+    pub ssh_private_key: String,
 }
 
 /// Manages the lifecycle of all VMs.
@@ -62,9 +63,8 @@ impl VmManager {
         // Allocate IP
         let vm_ip = self.ip_pool.allocate()?;
         let vm_ip_str = vm_ip.to_string();
-        self.db.allocate_ip(&vm_ip_str, &vm_id)?;
 
-        // Create DB record
+        // Create DB record (must come before allocate_ip due to FK constraint)
         let record = VmRecord {
             id: vm_id,
             status: VmStatus::Pending,
@@ -84,11 +84,20 @@ impl VmManager {
             terminated_at: None,
         };
         self.db.insert_vm(&record)?;
+        self.db.allocate_ip(&vm_ip_str, &vm_id)?;
 
         // Prepare rootfs copy
         let rootfs_path =
             prepare_rootfs(&self.config.rootfs_path, &self.config.vm_state_dir, &vm_id.to_string())
                 .await?;
+
+        // Generate SSH keypair and inject public key into rootfs
+        let ssh_private_key = inject_ssh_key(
+            &rootfs_path,
+            &self.config.vm_state_dir,
+            &vm_id.to_string(),
+        )
+        .await?;
 
         // Create TAP device
         let tap_name = tap::tap_name(&vm_id.to_string());
@@ -188,6 +197,7 @@ impl VmManager {
             ip: vm_ip_str,
             ssh_port: 22,
             expires_at,
+            ssh_private_key,
         })
     }
 

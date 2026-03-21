@@ -76,8 +76,8 @@ async fn main() -> anyhow::Result<()> {
                 )),
         )
         // VM management (no payment gate — authenticated by vm_id knowledge)
-        .route("/v1/vms/:id", get(routes::vm::get_vm))
-        .route("/v1/vms/:id", delete(routes::vm::delete_vm))
+        .route("/v1/vms/{id}", get(routes::vm::get_vm))
+        .route("/v1/vms/{id}", delete(routes::vm::delete_vm))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state);

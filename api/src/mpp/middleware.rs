@@ -160,8 +160,11 @@ pub async fn mpp_payment_gate(
                 price_micro,
                 &state.config.payment_recipient,
                 "tempo",
-                "USDC",
+                "USD",
                 &state.config.mpp_secret_key,
+                Some(state.config.chain_id),
+                Some(&state.config.tempo_rpc_url),
+                Some(&state.config.usdc_contract),
             );
 
             let www_auth = challenge.to_www_authenticate();
@@ -182,44 +185,46 @@ pub async fn mpp_payment_gate(
     }
 }
 
+/// Known USD-denominated TIP-20 stablecoins on Tempo.
+/// Any of these are accepted as payment.
+const TEMPO_USD_STABLECOINS: &[&str] = &[
+    "0x20c0000000000000000000000000000000000000", // pathUSD
+    "0x20c0000000000000000000000000000000000001", // AlphaUSD
+    "0x20c0000000000000000000000000000000000002", // BetaUSD
+    "0x20c0000000000000000000000000000000000003", // ThetaUSD
+];
+
 /// Verify a payment transaction on the Tempo chain.
 ///
-/// In production, this queries the Tempo RPC to confirm:
+/// Queries the Tempo RPC to confirm:
 /// 1. Transaction exists and is confirmed
 /// 2. Transfer is to the correct recipient
-/// 3. Amount matches the challenge
-/// 4. Token is the correct stablecoin
+/// 3. Amount matches or exceeds the challenge amount
+/// 4. Token is a recognized USD stablecoin (TIP-20)
 async fn verify_payment_onchain(
     state: &AppState,
     credential: &MppCredential,
     challenge: &MppChallenge,
 ) -> anyhow::Result<bool> {
-    // TODO: Implement actual on-chain verification via Tempo RPC
-    //
-    // For production, this should:
-    // 1. Call eth_getTransactionReceipt on Tempo RPC
-    // 2. Decode the Transfer event logs
-    // 3. Verify: to == challenge.recipient, amount >= challenge.amount
-    // 4. Verify the token contract matches USDC_CONTRACT
-    //
-    // For now, in development mode, we accept any credential with a non-empty tx_hash.
-
     if credential.tx_hash.is_empty() {
         return Ok(false);
     }
 
-    // Development: accept all non-empty tx hashes
-    // Production: uncomment and implement RPC verification
+    // Development mode: accept any non-empty tx_hash
     if state.config.mpp_secret_key == "dev-secret-change-me" {
         tracing::warn!("DEV MODE: Accepting payment without on-chain verification");
         return Ok(true);
     }
 
-    // Production verification via Tempo RPC
     let tx_hash = &credential.tx_hash;
     let rpc_url = &state.config.tempo_rpc_url;
 
-    let client = reqwest::Client::new();
+    info!(tx = %tx_hash, rpc = %rpc_url, "Verifying payment on Tempo");
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()?;
+
     let response = client
         .post(rpc_url)
         .json(&serde_json::json!({
@@ -233,14 +238,30 @@ async fn verify_payment_onchain(
 
     let receipt: serde_json::Value = response.json().await?;
 
+    // Check for RPC errors
+    if let Some(error) = receipt.get("error") {
+        warn!(error = %error, "Tempo RPC error");
+        anyhow::bail!("Tempo RPC error: {}", error);
+    }
+
+    // Check receipt exists (tx might be pending or invalid)
+    if receipt["result"].is_null() {
+        warn!(tx = %tx_hash, "Transaction receipt not found (pending or invalid)");
+        return Ok(false);
+    }
+
     // Check transaction was successful
     let status = receipt["result"]["status"]
         .as_str()
         .unwrap_or("0x0");
 
     if status != "0x1" {
+        warn!(tx = %tx_hash, status = %status, "Transaction failed on-chain");
         return Ok(false);
     }
+
+    // Parse challenge amount (microdollars = TIP-20 smallest units, both 6 decimals)
+    let required_amount: u64 = challenge.amount.parse().unwrap_or(0);
 
     // Check logs for Transfer event to our recipient
     let logs = receipt["result"]["logs"]
@@ -248,29 +269,63 @@ async fn verify_payment_onchain(
         .cloned()
         .unwrap_or_default();
 
-    // Transfer(address,address,uint256) topic
+    // Transfer(address,address,uint256) event signature
     let transfer_topic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
     for log in &logs {
-        let topics = log["topics"].as_array();
-        if let Some(topics) = topics {
-            if topics.len() >= 3
-                && topics[0].as_str() == Some(transfer_topic)
-            {
-                // topics[2] is the `to` address (padded to 32 bytes)
-                let to = topics[2].as_str().unwrap_or_default();
-                let to_addr = format!("0x{}", &to[to.len().saturating_sub(40)..]);
+        let topics = match log["topics"].as_array() {
+            Some(t) if t.len() >= 3 => t,
+            _ => continue,
+        };
 
-                if to_addr.to_lowercase() == challenge.recipient.to_lowercase() {
-                    // Verify contract address matches our USDC contract
-                    let contract = log["address"].as_str().unwrap_or_default();
-                    if contract.to_lowercase() == state.config.usdc_contract.to_lowercase() {
-                        return Ok(true);
-                    }
-                }
-            }
+        // Check this is a Transfer event
+        if topics[0].as_str() != Some(transfer_topic) {
+            continue;
+        }
+
+        // topics[2] is the `to` address (padded to 32 bytes)
+        let to_raw = topics[2].as_str().unwrap_or_default();
+        let to_addr = format!("0x{}", &to_raw[to_raw.len().saturating_sub(40)..]);
+
+        if to_addr.to_lowercase() != challenge.recipient.to_lowercase() {
+            continue;
+        }
+
+        // Verify the token contract is a recognized USD stablecoin
+        let contract = log["address"].as_str().unwrap_or_default().to_lowercase();
+        let is_accepted_stablecoin = contract == state.config.usdc_contract.to_lowercase()
+            || TEMPO_USD_STABLECOINS
+                .iter()
+                .any(|s| s.to_lowercase() == contract);
+
+        if !is_accepted_stablecoin {
+            continue;
+        }
+
+        // Verify amount (data field contains the uint256 transfer amount)
+        let data = log["data"].as_str().unwrap_or("0x0");
+        let amount = u64::from_str_radix(data.trim_start_matches("0x").trim_start_matches('0'), 16)
+            .unwrap_or(0);
+
+        if amount >= required_amount {
+            info!(
+                tx = %tx_hash,
+                amount,
+                required = required_amount,
+                token = %contract,
+                "Payment verified on Tempo"
+            );
+            return Ok(true);
+        } else {
+            warn!(
+                tx = %tx_hash,
+                amount,
+                required = required_amount,
+                "Transfer amount insufficient"
+            );
         }
     }
 
+    warn!(tx = %tx_hash, "No matching Transfer event found in receipt");
     Ok(false)
 }

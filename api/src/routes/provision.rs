@@ -31,6 +31,7 @@ pub struct ProvisionOutput {
     pub ssh_port: u16,
     pub expires_at: String,
     pub status: String,
+    pub ssh_private_key: String,
 }
 
 /// POST /v1/provision
@@ -80,6 +81,7 @@ pub async fn provision(
                 ssh_port: result.ssh_port,
                 expires_at: result.expires_at.to_rfc3339(),
                 status: "running".to_string(),
+                ssh_private_key: result.ssh_private_key,
             }),
         )
             .into_response(),

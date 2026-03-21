@@ -224,6 +224,136 @@ pub async fn prepare_rootfs(base_rootfs: &str, vm_dir: &str, vm_id: &str) -> Res
     Ok(dest)
 }
 
+/// Generate an Ed25519 SSH keypair and inject the public key into the rootfs.
+/// Returns the private key in PEM format.
+pub async fn inject_ssh_key(rootfs_path: &str, vm_dir: &str, vm_id: &str) -> Result<String> {
+    let key_dir = format!("{}/{}", vm_dir, vm_id);
+    let private_key_path = format!("{}/ssh_key", key_dir);
+    let public_key_path = format!("{}/ssh_key.pub", key_dir);
+
+    // Generate Ed25519 keypair
+    let output = Command::new("ssh-keygen")
+        .arg("-t")
+        .arg("ed25519")
+        .arg("-f")
+        .arg(&private_key_path)
+        .arg("-N")
+        .arg("") // no passphrase
+        .arg("-C")
+        .arg(format!("mpp-vm-{}", vm_id))
+        .output()
+        .await
+        .with_context(|| "Failed to generate SSH key")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("ssh-keygen failed: {}", stderr);
+    }
+
+    // Read the public key
+    let public_key = tokio::fs::read_to_string(&public_key_path)
+        .await
+        .with_context(|| "Failed to read public key")?;
+
+    // Mount rootfs, inject key, unmount
+    let mount_point = format!("{}/rootfs_mount", key_dir);
+    std::fs::create_dir_all(&mount_point)?;
+
+    let mount_result = Command::new("mount")
+        .arg("-o")
+        .arg("loop")
+        .arg(rootfs_path)
+        .arg(&mount_point)
+        .output()
+        .await
+        .with_context(|| "Failed to mount rootfs")?;
+
+    if !mount_result.status.success() {
+        let stderr = String::from_utf8_lossy(&mount_result.stderr);
+        anyhow::bail!("Failed to mount rootfs: {}", stderr);
+    }
+
+    // Ensure .ssh directory exists for root
+    let ssh_dir = format!("{}/root/.ssh", mount_point);
+    std::fs::create_dir_all(&ssh_dir)?;
+
+    // Write authorized_keys
+    tokio::fs::write(format!("{}/authorized_keys", ssh_dir), public_key.trim())
+        .await
+        .with_context(|| "Failed to write authorized_keys")?;
+
+    // Set permissions
+    Command::new("chmod")
+        .arg("700")
+        .arg(&ssh_dir)
+        .output()
+        .await?;
+    Command::new("chmod")
+        .arg("600")
+        .arg(format!("{}/authorized_keys", ssh_dir))
+        .output()
+        .await?;
+
+    // Enable root login and pubkey auth in sshd_config if it exists
+    let sshd_config = format!("{}/etc/ssh/sshd_config", mount_point);
+    if std::path::Path::new(&sshd_config).exists() {
+        let config_content = tokio::fs::read_to_string(&sshd_config).await?;
+        let mut new_config = config_content.clone();
+
+        // Ensure PermitRootLogin is set to yes
+        if new_config.contains("PermitRootLogin") {
+            new_config = new_config
+                .lines()
+                .map(|line| {
+                    if line.trim_start().starts_with("PermitRootLogin")
+                        || line.trim_start().starts_with("#PermitRootLogin")
+                    {
+                        "PermitRootLogin prohibit-password"
+                    } else {
+                        line
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+        } else {
+            new_config.push_str("\nPermitRootLogin prohibit-password\n");
+        }
+
+        // Ensure PubkeyAuthentication is enabled
+        if !new_config.contains("PubkeyAuthentication yes") {
+            new_config.push_str("PubkeyAuthentication yes\n");
+        }
+
+        tokio::fs::write(&sshd_config, new_config).await?;
+    }
+
+    // Unmount
+    let umount_result = Command::new("umount")
+        .arg(&mount_point)
+        .output()
+        .await
+        .with_context(|| "Failed to unmount rootfs")?;
+
+    if !umount_result.status.success() {
+        let stderr = String::from_utf8_lossy(&umount_result.stderr);
+        anyhow::bail!("Failed to unmount rootfs: {}", stderr);
+    }
+
+    // Clean up mount point
+    std::fs::remove_dir(&mount_point).ok();
+
+    // Read and return the private key
+    let private_key = tokio::fs::read_to_string(&private_key_path)
+        .await
+        .with_context(|| "Failed to read private key")?;
+
+    // Remove key files from disk (private key is returned to user, not stored)
+    tokio::fs::remove_file(&private_key_path).await.ok();
+    tokio::fs::remove_file(&public_key_path).await.ok();
+
+    Ok(private_key)
+}
+
 /// Clean up VM state directory.
 pub fn cleanup_vm_dir(vm_dir: &str, vm_id: &str) {
     let path = format!("{}/{}", vm_dir, vm_id);

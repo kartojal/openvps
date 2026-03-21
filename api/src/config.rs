@@ -36,8 +36,11 @@ pub struct Config {
     /// Recipient address for payments (our wallet)
     pub payment_recipient: String,
 
-    /// USDC contract address on Tempo
+    /// USDC/pathUSD contract address on Tempo
     pub usdc_contract: String,
+
+    /// Tempo chain ID (42431 for testnet)
+    pub chain_id: u64,
 
     /// Price per vCPU per hour in microdollars (e.g., 5000 = $0.005)
     pub price_vcpu_hour_micro: u64,
@@ -62,15 +65,17 @@ impl Config {
             bridge_iface: env_or("BRIDGE_IFACE", "mpp-br0"),
             db_path: env_or("DB_PATH", "/var/lib/mpp-hosting/mpp-hosting.db"),
             mpp_secret_key: env_or("MPP_SECRET_KEY", "dev-secret-change-me"),
-            tempo_rpc_url: env_or("TEMPO_RPC_URL", "https://rpc.tempo.xyz"),
+            tempo_rpc_url: env_or("TEMPO_RPC_URL", "https://rpc.moderato.tempo.xyz"),
             payment_recipient: env_or(
                 "PAYMENT_RECIPIENT",
                 "0x0000000000000000000000000000000000000000",
             ),
             usdc_contract: env_or(
                 "USDC_CONTRACT",
-                "0x20c000000000000000000000b9537d11c60e8b50",
+                // pathUSD on Tempo (testnet & mainnet)
+                "0x20c0000000000000000000000000000000000000",
             ),
+            chain_id: env_or("CHAIN_ID", "42431").parse()?,
             price_vcpu_hour_micro: env_or("PRICE_VCPU_HOUR_MICRO", "5000")
                 .parse()?,
             price_ram_mb_hour_micro: env_or("PRICE_RAM_MB_HOUR_MICRO", "2")

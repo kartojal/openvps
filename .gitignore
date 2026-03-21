@@ -8,6 +8,7 @@
 *.log
 .env
 .env.local
+/keystores/
 *.pem
 *.key
 firecracker.log

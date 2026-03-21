@@ -20,7 +20,7 @@ pub struct MppChallenge {
     pub method: String,
     /// Intent type (e.g., "charge")
     pub intent: String,
-    /// Amount in the smallest unit of the currency
+    /// Amount in the smallest unit of the currency (microdollars for TIP-20, 6 decimals)
     pub amount: String,
     /// Currency identifier
     pub currency: String,
@@ -28,6 +28,15 @@ pub struct MppChallenge {
     pub recipient: String,
     /// Network/chain identifier
     pub network: String,
+    /// Chain ID for wallet configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chain_id: Option<u64>,
+    /// RPC URL for the payment network
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rpc_url: Option<String>,
+    /// Token contract address to pay with
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_contract: Option<String>,
     /// Challenge expiry (ISO 8601)
     pub expires_at: String,
     /// HMAC signature over the challenge fields
@@ -42,6 +51,9 @@ impl MppChallenge {
         network: &str,
         currency: &str,
         secret_key: &str,
+        chain_id: Option<u64>,
+        rpc_url: Option<&str>,
+        token_contract: Option<&str>,
     ) -> Self {
         let id = Uuid::new_v4().to_string();
         let expires_at = (Utc::now() + Duration::minutes(5)).to_rfc3339();
@@ -55,6 +67,9 @@ impl MppChallenge {
             currency: currency.to_string(),
             recipient: recipient.to_string(),
             network: network.to_string(),
+            chain_id,
+            rpc_url: rpc_url.map(String::from),
+            token_contract: token_contract.map(String::from),
             expires_at,
             signature: String::new(),
         };

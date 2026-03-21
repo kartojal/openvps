@@ -1,0 +1,63 @@
+# Lima VM config for running Firecracker microVMs on macOS (Apple Silicon)
+# Requires macOS 15+ and M3/M4 for nested virtualization support
+
+vmType: vz
+nestedVirtualization: true
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+mounts:
+  - location: "~/work/mpp-hosting"
+    writable: true
+
+networks:
+  - vzNAT: true
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Update and install dependencies
+      apt-get update
+      apt-get install -y \
+        curl \
+        jq \
+        iptables \
+        iproute2 \
+        bridge-utils \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        sqlite3 \
+        net-tools
+
+      # Verify KVM is available (nested virtualization)
+      if [ ! -e /dev/kvm ]; then
+        echo "WARNING: /dev/kvm not found — nested virtualization may not be enabled"
+      else
+        echo "KVM available!"
+        chmod 666 /dev/kvm
+      fi
+
+      # Install Firecracker
+      ARCH=$(uname -m)
+      FC_VERSION="1.11.0"
+      curl -fsSL "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-${ARCH}.tgz" -o /tmp/firecracker.tgz
+      tar -xzf /tmp/firecracker.tgz -C /tmp
+      mv /tmp/release-v${FC_VERSION}-${ARCH}/firecracker-v${FC_VERSION}-${ARCH} /usr/local/bin/firecracker
+      mv /tmp/release-v${FC_VERSION}-${ARCH}/jailer-v${FC_VERSION}-${ARCH} /usr/local/bin/jailer
+      chmod +x /usr/local/bin/firecracker /usr/local/bin/jailer
+      rm -rf /tmp/firecracker.tgz /tmp/release-v${FC_VERSION}-${ARCH}
+
+      echo "Firecracker $(firecracker --version) installed successfully"
+
+      # Install Rust toolchain for building the API
+      su - ${LIMA_CIDATA_USER} -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
