@@ -319,6 +319,11 @@ impl VmManager {
         self.db.get_vm(vm_id)
     }
 
+    /// Access the database (for challenge tracking, etc.)
+    pub fn db(&self) -> &Database {
+        &self.db
+    }
+
     /// Get running VM stats: (count, total_vcpus, total_ram_mb).
     pub fn running_stats(&self) -> Result<(u32, u32, u32)> {
         let running = self.db.list_running_vms()?;

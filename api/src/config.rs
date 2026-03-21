@@ -30,6 +30,9 @@ pub struct Config {
     /// MPP secret key for HMAC signing of challenges/receipts
     pub mpp_secret_key: String,
 
+    /// Development mode: skip on-chain payment verification (NEVER use in production)
+    pub mpp_dev_mode: bool,
+
     /// Tempo RPC endpoint for payment verification
     pub tempo_rpc_url: String,
 
@@ -83,6 +86,7 @@ impl Config {
             bridge_iface: env_or("BRIDGE_IFACE", "mpp-br0"),
             db_path: env_or("DB_PATH", "/var/lib/mpp-hosting/mpp-hosting.db"),
             mpp_secret_key: env_or("MPP_SECRET_KEY", "dev-secret-change-me"),
+            mpp_dev_mode: env_or("MPP_DEV_MODE", "false") == "true",
             tempo_rpc_url: env_or("TEMPO_RPC_URL", "https://rpc.moderato.tempo.xyz"),
             payment_recipient: env_or(
                 "PAYMENT_RECIPIENT",

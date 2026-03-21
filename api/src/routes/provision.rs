@@ -45,11 +45,24 @@ pub async fn provision(
     headers: HeaderMap,
     Json(input): Json<ProvisionInput>,
 ) -> impl IntoResponse {
-    let vcpus = input.vcpus.unwrap_or(1).clamp(1, 8);
-    let ram_mb = input.ram_mb.unwrap_or(512).clamp(256, 16384);
-    let disk_gb = input.disk_gb.unwrap_or(10).clamp(1, 100);
+    let vcpus = input.vcpus.unwrap_or(1).clamp(1, 4);
+    let ram_mb = input.ram_mb.unwrap_or(512).clamp(256, 4096);
+    let disk_gb = input.disk_gb.unwrap_or(10).clamp(1, 20);
     let duration = input.duration.unwrap_or(3600).clamp(60, 86400);
+
+    // Validate image against whitelist
+    const ALLOWED_IMAGES: &[&str] = &["ubuntu-24.04"];
     let image = input.image.unwrap_or_else(|| "ubuntu-24.04".to_string());
+    if !ALLOWED_IMAGES.contains(&image.as_str()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_image",
+                "message": format!("Unsupported image. Available: {:?}", ALLOWED_IMAGES),
+            })),
+        )
+            .into_response();
+    }
 
     let price_micro = state
         .config
@@ -101,7 +114,7 @@ pub async fn provision(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
                     "error": "provision_failed",
-                    "message": e.to_string(),
+                    "message": "VM provisioning failed. Please try again.",
                 })),
             )
                 .into_response()

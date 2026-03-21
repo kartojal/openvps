@@ -87,6 +87,27 @@ pub async fn mpp_payment_gate(
                                     .into_response();
                             }
 
+                            // Prevent challenge replay: mark as consumed
+                            match state.vm_manager.db().consume_challenge(&challenge.id) {
+                                Ok(true) => {} // First use — proceed
+                                Ok(false) => {
+                                    warn!(challenge_id = %challenge.id, "Challenge already used (replay attempt)");
+                                    return (
+                                        StatusCode::CONFLICT,
+                                        "Challenge already used",
+                                    )
+                                        .into_response();
+                                }
+                                Err(e) => {
+                                    warn!(error = %e, "Failed to check challenge usage");
+                                    return (
+                                        StatusCode::INTERNAL_SERVER_ERROR,
+                                        "Internal error",
+                                    )
+                                        .into_response();
+                                }
+                            }
+
                             // Verify payment on-chain
                             match verify_payment_onchain(&state, &credential, &challenge).await {
                                 Ok(true) => {
@@ -463,8 +484,8 @@ async fn verify_payment_onchain(
         return Ok(false);
     }
 
-    // Development mode: accept any non-empty tx_hash
-    if state.config.mpp_secret_key == "dev-secret-change-me" {
+    // Development mode: only enabled via explicit MPP_DEV_MODE=true env var
+    if state.config.mpp_dev_mode {
         tracing::warn!("DEV MODE: Accepting payment without on-chain verification");
         return Ok(true);
     }

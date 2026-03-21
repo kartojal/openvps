@@ -62,6 +62,11 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_vms_status ON vms(status);
             CREATE INDEX IF NOT EXISTS idx_vms_expires_at ON vms(expires_at);
 
+            CREATE TABLE IF NOT EXISTS used_challenges (
+                challenge_id TEXT PRIMARY KEY,
+                used_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS ip_allocations (
                 ip_addr TEXT PRIMARY KEY,
                 vm_id TEXT,
@@ -258,6 +263,30 @@ impl Database {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(vms)
+    }
+
+    /// Check if a challenge has already been used, and mark it as used.
+    /// Returns true if the challenge was successfully consumed (first use).
+    /// Returns false if it was already used (replay attempt).
+    pub fn consume_challenge(&self, challenge_id: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.execute(
+            "INSERT OR IGNORE INTO used_challenges (challenge_id, used_at) VALUES (?1, ?2)",
+            rusqlite::params![challenge_id, Utc::now().to_rfc3339()],
+        )?;
+        // If 1 row was inserted, challenge was not previously used
+        Ok(result == 1)
+    }
+
+    /// Clean up expired challenges (older than 10 minutes).
+    pub fn cleanup_old_challenges(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::minutes(10)).to_rfc3339();
+        conn.execute(
+            "DELETE FROM used_challenges WHERE used_at < ?1",
+            rusqlite::params![cutoff],
+        )?;
+        Ok(())
     }
 
     pub fn allocate_ip(&self, ip_addr: &str, vm_id: &Uuid) -> Result<()> {
