@@ -50,6 +50,15 @@ pub struct Config {
 
     /// Price per GB disk per hour in microdollars
     pub price_disk_gb_hour_micro: u64,
+
+    /// x402 facilitator URL for payment verification and settlement
+    pub x402_facilitator_url: String,
+
+    /// USDC contract address on Base Sepolia (ERC-20, 6 decimals)
+    pub x402_base_asset: String,
+
+    /// cUSD contract address on Celo mainnet (ERC-20, 18 decimals — but amount strings are in atomic units)
+    pub x402_celo_asset: String,
 }
 
 impl Config {
@@ -82,6 +91,20 @@ impl Config {
                 .parse()?,
             price_disk_gb_hour_micro: env_or("PRICE_DISK_GB_HOUR_MICRO", "100")
                 .parse()?,
+            x402_facilitator_url: env_or(
+                "X402_FACILITATOR_URL",
+                "https://x402.org/facilitator",
+            ),
+            x402_base_asset: env_or(
+                "X402_BASE_ASSET",
+                // USDC on Base Sepolia
+                "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            ),
+            x402_celo_asset: env_or(
+                "X402_CELO_ASSET",
+                // cUSD on Celo mainnet
+                "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+            ),
         })
     }
 

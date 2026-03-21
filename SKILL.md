@@ -1,11 +1,20 @@
 # Skill: Provision a VPS via MPP Hosting
 
-You are an AI agent that needs compute. This skill teaches you how to request, pay for, and connect to a VPS (Virtual Private Server) powered by Firecracker microVMs, paid via the Machine Payments Protocol (MPP) on the Tempo blockchain.
+You are an AI agent that needs compute. This skill teaches you how to request, pay for, and connect to a VPS (Virtual Private Server) powered by Firecracker microVMs, paid via stablecoin micropayments.
+
+## Supported Payment Protocols
+
+| Protocol | Networks | Description |
+|----------|----------|-------------|
+| **x402** | Base (USDC), Celo (cUSD) | Coinbase's HTTP 402 standard — sign an EIP-3009 authorization, facilitator settles on-chain |
+| **MPP** | Tempo (pathUSD) | Machine Payments Protocol — transfer stablecoins directly, provide tx hash |
+
+The server accepts **all three** simultaneously. Pick whichever network/protocol your wallet supports.
 
 ## Overview
 
-1. Request a VPS → get a 402 Payment Required challenge
-2. Pay the challenge amount on Tempo using a USD stablecoin
+1. Request a VPS → get a `402 Payment Required` with both `PAYMENT-REQUIRED` (x402) and `WWW-Authenticate` (MPP) headers
+2. Pay via x402 (Base/Celo) or MPP (Tempo)
 3. Resubmit with payment proof → get VM IP + SSH private key
 4. SSH into your VM and do your work
 5. Terminate when done
@@ -25,44 +34,130 @@ curl -s -D /tmp/mpp-headers.txt -o /tmp/mpp-challenge.json \
   }'
 ```
 
-You'll get a `402 Payment Required` response with a challenge:
+You'll get a `402 Payment Required` response with **two headers**:
+
+### Header 1: `PAYMENT-REQUIRED` (x402 protocol — Base, Celo)
+
+Decode the base64 header to get:
+
+```json
+{
+  "x402Version": 1,
+  "resource": {
+    "url": "/v1/provision",
+    "description": "Provision a Firecracker microVM",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:84532",
+      "amount": "12548",
+      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "payTo": "0x8A739f3A6f40194C0128904bC387e63d9C0577A4",
+      "maxTimeoutSeconds": 300,
+      "extra": {"name": "USDC", "version": "2"}
+    },
+    {
+      "scheme": "exact",
+      "network": "eip155:42220",
+      "amount": "12548",
+      "asset": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+      "payTo": "0x8A739f3A6f40194C0128904bC387e63d9C0577A4",
+      "maxTimeoutSeconds": 300,
+      "extra": {"name": "cUSD"}
+    }
+  ]
+}
+```
+
+### Header 2: `WWW-Authenticate` (MPP protocol — Tempo)
+
+The response body contains the MPP challenge:
 
 ```json
 {
   "id": "uuid-challenge-id",
-  "realm": "mpp-hosting",
-  "method": "tempo",
-  "intent": "charge",
-  "amount": "6122",
+  "amount": "12548",
   "currency": "USD",
   "recipient": "0x8A739f3A6f40194C0128904bC387e63d9C0577A4",
   "network": "tempo",
   "chain_id": 42431,
   "rpc_url": "https://rpc.moderato.tempo.xyz",
-  "token_contract": "0x20c0000000000000000000000000000000000000",
-  "expires_at": "2026-03-21T10:00:00+00:00",
-  "signature": "..."
+  "token_contract": "0x20c0000000000000000000000000000000000000"
 }
 ```
 
-Key fields:
-- `amount`: price in microdollars (6 decimals). `6122` = $0.006122
-- `recipient`: the wallet address to pay
-- `token_contract`: the TIP-20 stablecoin to use (pathUSD)
-- `chain_id`: Tempo testnet = 42431
-- `rpc_url`: RPC endpoint for submitting the payment transaction
-- `expires_at`: you must pay and submit within this window (5 minutes)
+**Choose your payment path:**
+- **x402 (Base/Celo)** → Go to Step 2A
+- **MPP (Tempo)** → Go to Step 2B
 
-Save the challenge ID and the base64 challenge from the `WWW-Authenticate` header:
+---
+
+## Step 2A: Pay via x402 (Base USDC or Celo cUSD)
+
+The x402 protocol uses EIP-3009 `transferWithAuthorization`. You sign an authorization off-chain, and the facilitator settles it on-chain.
+
+### Using Open Wallet Standard (OWS)
+
+If your agent uses OWS, it handles signing automatically:
+
+```bash
+# Sign the x402 authorization via OWS
+ows sign tx --wallet agent-treasury --chain evm --tx-hex "$AUTHORIZATION_DATA"
+```
+
+Or via MCP (Claude/OpenAI agents):
+
+```
+Agent → ows_sign(chain="evm", tx=authorization_data) → signed payload
+```
+
+### Using any x402 client library
+
+The x402 client libraries handle the full flow automatically:
+
+**Rust** (`x402-reqwest`):
+```rust
+use x402_reqwest::X402Client;
+let client = X402Client::new(signer, "eip155:84532");
+let response = client.post("https://host:8402/v1/provision").json(&body).send().await?;
+// Payment is handled transparently
+```
+
+**JavaScript** (`@anthropic-ai/x402`):
+```javascript
+import { x402fetch } from "@anthropic-ai/x402";
+const response = await x402fetch("https://host:8402/v1/provision", {
+  method: "POST",
+  body: JSON.stringify(body),
+  paymentSigner: wallet,
+});
+```
+
+### Manual x402 flow
+
+If you need to construct the payment manually:
+
+1. Pick a network from `accepts[]` (e.g., `eip155:84532` for Base Sepolia USDC)
+2. Sign an EIP-3009 `transferWithAuthorization` for the `amount` to `payTo`
+3. Build a `PaymentPayload` JSON, base64-encode it
+4. Resend the request with `PAYMENT-SIGNATURE: <base64>` header
+
+The server calls the facilitator to verify and settle on-chain. On success, you get `201 Created` with VM details + the `PAYMENT-RESPONSE` header.
+
+---
+
+## Step 2B: Pay via MPP (Tempo pathUSD)
+
+Transfer the exact `amount` of `token_contract` to `recipient` on Tempo. The amount is in the token's smallest unit (6 decimals for TIP-20 USD stablecoins).
+
+Save the challenge info:
 
 ```bash
 CHALLENGE_ID=$(cat /tmp/mpp-challenge.json | jq -r .id)
 CHALLENGE_B64=$(grep -i "www-authenticate" /tmp/mpp-headers.txt | sed 's/.*challenge="//' | sed 's/".*//')
 ```
-
-## Step 2: Pay on Tempo
-
-Transfer the exact `amount` of `token_contract` to `recipient` on Tempo. The amount is in the token's smallest unit (6 decimals for TIP-20 USD stablecoins).
 
 Choose the method that matches your wallet setup:
 
@@ -185,9 +280,11 @@ For other languages, use any EVM-compatible library:
 
 ---
 
-## Step 3: Submit Payment Proof
+## Step 3: Submit Payment Proof (MPP only)
 
-Once you have the `TX_HASH`, build a credential and resubmit:
+If you used x402 (Step 2A), the payment is already submitted via the `PAYMENT-SIGNATURE` header — skip to Step 4.
+
+If you used MPP (Step 2B), once you have the `TX_HASH`, build a credential and resubmit:
 
 ```bash
 # Build the payment credential
@@ -268,34 +365,73 @@ Prices are in microdollars (1 microdollar = $0.000001):
 
 Example: 2 vCPUs + 1GB RAM + 10GB disk for 1 hour = $0.012048
 
-## Accepted Payment Tokens
+## Accepted Payment Networks & Tokens
 
-Any USD-denominated TIP-20 stablecoin on Tempo:
+### x402 Protocol
 
-| Token | Contract Address |
-|-------|-----------------|
-| pathUSD | `0x20c0000000000000000000000000000000000000` |
-| AlphaUSD | `0x20c0000000000000000000000000000000000001` |
-| BetaUSD | `0x20c0000000000000000000000000000000000002` |
-| ThetaUSD | `0x20c0000000000000000000000000000000000003` |
+| Network | Chain ID | Token | Contract | Decimals |
+|---------|----------|-------|----------|----------|
+| Base Sepolia | eip155:84532 | USDC | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | 6 |
+| Celo | eip155:42220 | cUSD | `0x765DE816845861e75A25fCA122bb6898B8B1282a` | 18 |
 
-## Testnet Faucet
+### MPP Protocol (Tempo)
 
-Get free testnet stablecoins:
+| Token | Contract Address | Decimals |
+|-------|-----------------|----------|
+| pathUSD | `0x20c0000000000000000000000000000000000000` | 6 |
+| AlphaUSD | `0x20c0000000000000000000000000000000000001` | 6 |
+| BetaUSD | `0x20c0000000000000000000000000000000000002` | 6 |
+| ThetaUSD | `0x20c0000000000000000000000000000000000003` | 6 |
+
+## Testnet Faucets
 
 ```bash
+# Tempo testnet (pathUSD)
 cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.moderato.tempo.xyz
+
+# Base Sepolia USDC — use the Base Sepolia faucet at https://www.alchemy.com/faucets/base-sepolia
+# Celo — use the Celo faucet at https://faucet.celo.org
 ```
+
+## Wallet Integration: Open Wallet Standard (OWS)
+
+OWS provides a chain-agnostic wallet for agents. One vault, one interface, every chain.
+
+```bash
+# Install OWS
+curl -fsSL https://openwallet.sh/install.sh | bash
+
+# Create a wallet
+ows wallet create --name "agent-treasury"
+
+# Sign transactions for any chain
+ows sign tx --wallet agent-treasury --chain evm --tx-hex "..."
+```
+
+For Claude/OpenAI agents, add OWS as an MCP server:
+
+```json
+{
+  "mcpServers": {
+    "ows": { "command": "ows", "args": ["serve", "--mcp"] }
+  }
+}
+```
+
+Then the agent can call `ows_sign` to sign x402 payment authorizations without ever seeing private keys.
+
+Learn more: [openwallet.sh](https://openwallet.sh)
 
 ## Quick Reference
 
 | Item | Value |
 |------|-------|
 | API Endpoint | `https://YOUR_MPP_HOST:8402` |
-| Network | Tempo (testnet: Moderato) |
-| Chain ID | 42431 |
-| RPC URL | `https://rpc.moderato.tempo.xyz` |
-| Default Token | pathUSD (`0x20c0...0000`) |
-| Token Decimals | 6 |
+| Payment Protocols | x402 (Base, Celo) + MPP (Tempo) |
+| x402 Facilitator | `https://x402.org/facilitator` |
+| Tempo RPC | `https://rpc.moderato.tempo.xyz` |
+| Tempo Chain ID | 42431 |
+| Base Sepolia Chain ID | 84532 |
+| Celo Chain ID | 42220 |
 | SSH User | `root` |
 | VM OS | Ubuntu 24.04 LTS (aarch64) |

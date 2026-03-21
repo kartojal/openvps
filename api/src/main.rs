@@ -5,6 +5,7 @@ mod mpp;
 mod network;
 mod routes;
 mod vm;
+mod x402;
 
 use axum::middleware;
 use axum::routing::{delete, get, post};
