@@ -82,8 +82,8 @@ The response body contains the MPP challenge:
   "currency": "USD",
   "recipient": "0x8A739f3A6f40194C0128904bC387e63d9C0577A4",
   "network": "tempo",
-  "chain_id": 42431,
-  "rpc_url": "https://rpc.moderato.tempo.xyz",
+  "chain_id": 4217,
+  "rpc_url": "https://rpc.tempo.xyz",
   "token_contract": "0x20c0000000000000000000000000000000000000"
 }
 ```
@@ -172,8 +172,8 @@ Best for: CLI-native agents, dev/testing environments.
 TX_HASH=$(cast send \
   --keystore /path/to/keystore.json \
   --password "your-password" \
-  --rpc-url https://rpc.moderato.tempo.xyz \
-  --chain 42431 \
+  --rpc-url https://rpc.tempo.xyz \
+  --chain 4217 \
   0x20c0000000000000000000000000000000000000 \
   "transfer(address,uint256)(bool)" \
   RECIPIENT_ADDRESS \
@@ -188,7 +188,7 @@ To create a keystore if you don't have one:
 ```bash
 cast wallet new /path/to/keystores --unsafe-password "your-password"
 # Fund it from faucet (testnet only):
-cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.moderato.tempo.xyz
+cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.tempo.xyz
 ```
 
 ---
@@ -200,8 +200,8 @@ Best for: Agents with a private key in memory or environment variable.
 ```bash
 TX_HASH=$(cast send \
   --private-key $PRIVATE_KEY \
-  --rpc-url https://rpc.moderato.tempo.xyz \
-  --chain 42431 \
+  --rpc-url https://rpc.tempo.xyz \
+  --chain 4217 \
   0x20c0000000000000000000000000000000000000 \
   "transfer(address,uint256)(bool)" \
   RECIPIENT_ADDRESS \
@@ -259,13 +259,13 @@ Best for: Agents that construct and sign transactions programmatically.
 CALLDATA=$(cast calldata "transfer(address,uint256)" RECIPIENT_ADDRESS AMOUNT)
 
 # 2. Get nonce
-NONCE=$(cast nonce YOUR_ADDRESS --rpc-url https://rpc.moderato.tempo.xyz)
+NONCE=$(cast nonce YOUR_ADDRESS --rpc-url https://rpc.tempo.xyz)
 
 # 3. Sign and send (using cast or any eth library)
 TX_HASH=$(cast send \
   --private-key $KEY \
-  --rpc-url https://rpc.moderato.tempo.xyz \
-  --chain 42431 \
+  --rpc-url https://rpc.tempo.xyz \
+  --chain 4217 \
   --nonce $NONCE \
   0x20c0000000000000000000000000000000000000 \
   $CALLDATA \
@@ -386,8 +386,8 @@ Example: 2 vCPUs + 1GB RAM + 10GB disk for 1 hour = $0.012048
 ## Testnet Faucets
 
 ```bash
-# Tempo testnet (pathUSD)
-cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.moderato.tempo.xyz
+# Tempo mainnet (pathUSD)
+cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.tempo.xyz
 
 # Base Sepolia USDC — use the Base Sepolia faucet at https://www.alchemy.com/faucets/base-sepolia
 # Celo — use the Celo faucet at https://faucet.celo.org
@@ -429,8 +429,8 @@ Learn more: [openwallet.sh](https://openwallet.sh)
 | API Endpoint | `https://openvps.sh` |
 | Payment Protocols | x402 (Base, Celo) + MPP (Tempo) |
 | x402 Facilitator | `https://x402.org/facilitator` |
-| Tempo RPC | `https://rpc.moderato.tempo.xyz` |
-| Tempo Chain ID | 42431 |
+| Tempo RPC | `https://rpc.tempo.xyz` |
+| Tempo Chain ID | 4217 |
 | Base Sepolia Chain ID | 84532 |
 | Celo Chain ID | 42220 |
 | SSH User | `root` |

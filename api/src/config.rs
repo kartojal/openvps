@@ -87,7 +87,7 @@ impl Config {
             db_path: env_or("DB_PATH", "/var/lib/mpp-hosting/mpp-hosting.db"),
             mpp_secret_key: env_or("MPP_SECRET_KEY", "dev-secret-change-me"),
             mpp_dev_mode: env_or("MPP_DEV_MODE", "false") == "true",
-            tempo_rpc_url: env_or("TEMPO_RPC_URL", "https://rpc.moderato.tempo.xyz"),
+            tempo_rpc_url: env_or("TEMPO_RPC_URL", "https://rpc.tempo.xyz"),
             payment_recipient: env_or(
                 "PAYMENT_RECIPIENT",
                 "0x0000000000000000000000000000000000000000",
@@ -97,7 +97,7 @@ impl Config {
                 // pathUSD on Tempo (testnet & mainnet)
                 "0x20c0000000000000000000000000000000000000",
             ),
-            chain_id: env_or("CHAIN_ID", "42431").parse()?,
+            chain_id: env_or("CHAIN_ID", "4217").parse()?,
             public_ip: env_or("PUBLIC_IP", "0.0.0.0"),
             host_iface: env_or("HOST_IFACE", "eth0"),
             ssh_port_base: env_or("SSH_PORT_BASE", "2200").parse()?,
