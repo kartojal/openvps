@@ -74,6 +74,24 @@ impl Database {
                 released_at TEXT,
                 FOREIGN KEY (vm_id) REFERENCES vms(id)
             );
+
+            CREATE TABLE IF NOT EXISTS session_tokens (
+                token TEXT PRIMARY KEY,
+                vm_id TEXT NOT NULL,
+                payer_address TEXT NOT NULL,
+                used INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY (vm_id) REFERENCES vms(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS vm_v2_auth (
+                vm_id TEXT PRIMARY KEY,
+                payer_address TEXT NOT NULL,
+                challenge TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (vm_id) REFERENCES vms(id)
+            );
             ",
         )?;
         Ok(())
@@ -287,6 +305,113 @@ impl Database {
             rusqlite::params![cutoff],
         )?;
         Ok(())
+    }
+
+    /// Insert a new session token for wallet-authenticated SSH.
+    pub fn create_session_token(
+        &self,
+        token: &str,
+        vm_id: &str,
+        payer_address: &str,
+        expires_at: &DateTime<Utc>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO session_tokens (token, vm_id, payer_address, created_at, expires_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                token,
+                vm_id,
+                payer_address,
+                Utc::now().to_rfc3339(),
+                expires_at.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Verify and consume a one-time session token.
+    /// Returns (vm_id, payer_address) on success.
+    pub fn verify_and_consume_token(&self, token: &str) -> Result<Option<(String, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        // Try to atomically mark as used if valid
+        let updated = conn.execute(
+            "UPDATE session_tokens SET used = 1
+             WHERE token = ?1 AND used = 0 AND expires_at > ?2",
+            rusqlite::params![token, now],
+        )?;
+
+        if updated == 0 {
+            return Ok(None);
+        }
+
+        // Fetch the token details
+        let mut stmt = conn.prepare(
+            "SELECT vm_id, payer_address FROM session_tokens WHERE token = ?1",
+        )?;
+
+        let result = stmt.query_row(rusqlite::params![token], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+
+        match result {
+            Ok(pair) => Ok(Some(pair)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Delete expired session tokens.
+    pub fn cleanup_expired_tokens(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "DELETE FROM session_tokens WHERE expires_at < ?1",
+            rusqlite::params![now],
+        )?;
+        Ok(())
+    }
+
+    /// Store v2 wallet-auth data (payer address + challenge) for a VM.
+    pub fn update_vm_v2_auth(
+        &self,
+        vm_id: &Uuid,
+        payer_address: &str,
+        challenge: &str,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO vm_v2_auth (vm_id, payer_address, challenge, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                vm_id.to_string(),
+                payer_address,
+                challenge,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get v2 wallet-auth data for a VM.
+    /// Returns (payer_address, challenge) if found.
+    pub fn get_vm_v2_auth(&self, vm_id: &Uuid) -> Result<Option<(String, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT payer_address, challenge FROM vm_v2_auth WHERE vm_id = ?1",
+        )?;
+
+        let result = stmt.query_row(rusqlite::params![vm_id.to_string()], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+
+        match result {
+            Ok(pair) => Ok(Some(pair)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     pub fn allocate_ip(&self, ip_addr: &str, vm_id: &Uuid) -> Result<()> {

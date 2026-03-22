@@ -81,6 +81,17 @@ async fn main() -> anyhow::Result<()> {
                     mpp::middleware::mpp_payment_gate,
                 )),
         )
+        // V2 provision endpoint (MPP payment gated, wallet-auth SSH)
+        .route(
+            "/v2/provision",
+            post(routes::v2::provision_v2).route_layer(middleware::from_fn_with_state(
+                state.clone(),
+                mpp::middleware::mpp_payment_gate,
+            )),
+        )
+        // V2 session and auth endpoints (no payment gate)
+        .route("/v2/session", post(routes::v2::create_session))
+        .route("/v2/auth/verify", post(routes::v2::verify_auth))
         // VM management (no payment gate — authenticated by vm_id knowledge)
         .route("/v1/vms/{id}", get(routes::vm::get_vm))
         .route("/v1/vms/{id}", delete(routes::vm::delete_vm))
