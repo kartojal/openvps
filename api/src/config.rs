@@ -94,8 +94,8 @@ impl Config {
             ),
             usdc_contract: env_or(
                 "USDC_CONTRACT",
-                // pathUSD on Tempo (testnet & mainnet)
-                "0x20c0000000000000000000000000000000000000",
+                // USDC.e (Bridged USDC Stargate) on Tempo mainnet
+                "0x20c000000000000000000000b9537d11c60e8b50",
             ),
             chain_id: env_or("CHAIN_ID", "4217").parse()?,
             public_ip: env_or("PUBLIC_IP", "0.0.0.0"),
@@ -113,13 +113,13 @@ impl Config {
             ),
             x402_base_asset: env_or(
                 "X402_BASE_ASSET",
-                // USDC on Base Sepolia
-                "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                // USDC on Base mainnet
+                "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
             ),
             x402_celo_asset: env_or(
                 "X402_CELO_ASSET",
-                // cUSD on Celo mainnet
-                "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+                // USDC on Celo mainnet
+                "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
             ),
         })
     }

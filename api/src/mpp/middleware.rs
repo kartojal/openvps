@@ -377,15 +377,15 @@ fn find_matching_requirements(
     let accepted = &payload.accepted;
 
     // Match on network + asset
-    let base_sepolia_match = accepted.network == "eip155:84532"
+    let base_match = accepted.network == "eip155:8453"
         && accepted.asset.to_lowercase() == state.config.x402_base_asset.to_lowercase();
     let celo_match = accepted.network == "eip155:42220"
         && accepted.asset.to_lowercase() == state.config.x402_celo_asset.to_lowercase();
 
-    if base_sepolia_match {
+    if base_match {
         Some(PaymentRequirements {
             scheme: "exact".to_string(),
-            network: "eip155:84532".to_string(),
+            network: "eip155:8453".to_string(),
             amount: accepted.amount.clone(),
             asset: state.config.x402_base_asset.clone(),
             pay_to: state.config.payment_recipient.clone(),
@@ -400,7 +400,7 @@ fn find_matching_requirements(
             asset: state.config.x402_celo_asset.clone(),
             pay_to: state.config.payment_recipient.clone(),
             max_timeout_seconds: 300,
-            extra: Some(serde_json::json!({"name": "cUSD"})),
+            extra: Some(serde_json::json!({"name": "USDC"})),
         })
     } else {
         None
@@ -429,7 +429,7 @@ fn build_payment_required_inner(
     let accepts = vec![
         PaymentRequirements {
             scheme: "exact".to_string(),
-            network: "eip155:84532".to_string(),
+            network: "eip155:8453".to_string(),
             amount: amount.to_string(),
             asset: state.config.x402_base_asset.clone(),
             pay_to: state.config.payment_recipient.clone(),
@@ -443,7 +443,7 @@ fn build_payment_required_inner(
             asset: state.config.x402_celo_asset.clone(),
             pay_to: state.config.payment_recipient.clone(),
             max_timeout_seconds: 300,
-            extra: Some(serde_json::json!({"name": "cUSD"})),
+            extra: Some(serde_json::json!({"name": "USDC"})),
         },
     ];
 
@@ -459,9 +459,10 @@ fn build_payment_required_inner(
     }
 }
 
-/// Known USD-denominated TIP-20 stablecoins on Tempo.
+/// Known USD-denominated stablecoins on Tempo.
 /// Any of these are accepted as payment.
 const TEMPO_USD_STABLECOINS: &[&str] = &[
+    "0x20c000000000000000000000b9537d11c60e8b50", // USDC.e (Bridged USDC Stargate)
     "0x20c0000000000000000000000000000000000000", // pathUSD
     "0x20c0000000000000000000000000000000000001", // AlphaUSD
     "0x20c0000000000000000000000000000000000002", // BetaUSD

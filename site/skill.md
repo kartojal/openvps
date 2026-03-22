@@ -51,9 +51,9 @@ Decode the base64 header to get:
   "accepts": [
     {
       "scheme": "exact",
-      "network": "eip155:84532",
+      "network": "eip155:8453",
       "amount": "12548",
-      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
       "payTo": "0x8A739f3A6f40194C0128904bC387e63d9C0577A4",
       "maxTimeoutSeconds": 300,
       "extra": {"name": "USDC", "version": "2"}
@@ -62,7 +62,7 @@ Decode the base64 header to get:
       "scheme": "exact",
       "network": "eip155:42220",
       "amount": "12548",
-      "asset": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+      "asset": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
       "payTo": "0x8A739f3A6f40194C0128904bC387e63d9C0577A4",
       "maxTimeoutSeconds": 300,
       "extra": {"name": "cUSD"}
@@ -120,7 +120,7 @@ The x402 client libraries handle the full flow automatically:
 **Rust** (`x402-reqwest`):
 ```rust
 use x402_reqwest::X402Client;
-let client = X402Client::new(signer, "eip155:84532");
+let client = X402Client::new(signer, "eip155:8453");
 let response = client.post("https://host:8402/v1/provision").json(&body).send().await?;
 // Payment is handled transparently
 ```
@@ -139,7 +139,7 @@ const response = await x402fetch("https://host:8402/v1/provision", {
 
 If you need to construct the payment manually:
 
-1. Pick a network from `accepts[]` (e.g., `eip155:84532` for Base Sepolia USDC)
+1. Pick a network from `accepts[]` (e.g., `eip155:8453` for Base USDC)
 2. Sign an EIP-3009 `transferWithAuthorization` for the `amount` to `payTo`
 3. Build a `PaymentPayload` JSON, base64-encode it
 4. Resend the request with `PAYMENT-SIGNATURE: <base64>` header
@@ -371,8 +371,8 @@ Example: 2 vCPUs + 1GB RAM + 10GB disk for 1 hour = $0.012048
 
 | Network | Chain ID | Token | Contract | Decimals |
 |---------|----------|-------|----------|----------|
-| Base Sepolia | eip155:84532 | USDC | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | 6 |
-| Celo | eip155:42220 | cUSD | `0x765DE816845861e75A25fCA122bb6898B8B1282a` | 18 |
+| Base | eip155:8453 | USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | 6 |
+| Celo | eip155:42220 | cUSD | `0xcebA9300f2b948710d2653dD7B07f33A8B32118C` | 18 |
 
 ### MPP Protocol (Tempo)
 
@@ -389,7 +389,7 @@ Example: 2 vCPUs + 1GB RAM + 10GB disk for 1 hour = $0.012048
 # Tempo mainnet (pathUSD)
 cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.tempo.xyz
 
-# Base Sepolia USDC — use the Base Sepolia faucet at https://www.alchemy.com/faucets/base-sepolia
+# Base USDC — use the Base faucet at https://www.alchemy.com/faucets/base-sepolia
 # Celo — use the Celo faucet at https://faucet.celo.org
 ```
 
@@ -431,7 +431,7 @@ Learn more: [openwallet.sh](https://openwallet.sh)
 | x402 Facilitator | `https://x402.org/facilitator` |
 | Tempo RPC | `https://rpc.tempo.xyz` |
 | Tempo Chain ID | 4217 |
-| Base Sepolia Chain ID | 84532 |
+| Base Chain ID | 84532 |
 | Celo Chain ID | 42220 |
 | SSH User | `root` |
 | VM OS | Ubuntu 24.04 LTS (aarch64) |
