@@ -113,14 +113,37 @@ impl MppChallenge {
         }
     }
 
-    /// Encode as the WWW-Authenticate header value.
+    /// Encode as the WWW-Authenticate header value (official MPP format).
     pub fn to_www_authenticate(&self) -> String {
+        let currency_field = self.token_contract.as_deref().unwrap_or(&self.recipient);
+        let request_with_currency = serde_json::json!({
+            "amount": self.amount,
+            "currency": currency_field,
+            "methodDetails": {
+                "chainId": self.chain_id.unwrap_or(4217)
+            },
+            "recipient": self.recipient
+        });
+
+        let request_b64 = base64::engine::general_purpose::STANDARD
+            .encode(serde_json::to_string(&request_with_currency).unwrap_or_default());
+
         format!(
-            "Payment realm=\"{}\", challenge=\"{}\"",
+            "Payment id=\"{}\", realm=\"{}\", method=\"{}\", intent=\"{}\", request=\"{}\", description=\"VPS provisioning\", expires=\"{}\"",
+            self.id,
             self.realm,
-            base64::engine::general_purpose::STANDARD
-                .encode(serde_json::to_string(self).unwrap_or_default())
+            self.method,
+            self.intent,
+            request_b64,
+            self.expires_at
         )
+    }
+
+    /// Encode as the legacy challenge format (for X-MPP-Challenge header).
+    #[allow(dead_code)]
+    pub fn to_challenge_b64(&self) -> String {
+        base64::engine::general_purpose::STANDARD
+            .encode(serde_json::to_string(self).unwrap_or_default())
     }
 }
 
