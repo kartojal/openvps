@@ -51,3 +51,24 @@ pub struct VmRecord {
     pub expires_at: DateTime<Utc>,
     pub terminated_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobRecord {
+    pub id: String,
+    pub vm_id: Option<String>,
+    /// pending | running | completed | failed | timeout
+    pub status: String,
+    pub command: String,
+    pub setup_script: Option<String>,
+    pub output: String,
+    pub exit_code: Option<i32>,
+    pub timeout_secs: u32,
+    pub vcpus: u32,
+    pub ram_mb: u32,
+    pub created_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub expires_at: DateTime<Utc>,
+    pub payment_tx: Option<String>,
+    pub price_micro: u64,
+}

@@ -92,6 +92,16 @@ async fn main() -> anyhow::Result<()> {
         // V2 session and auth endpoints (no payment gate)
         .route("/v2/session", post(routes::v2::create_session))
         .route("/v2/auth/verify", post(routes::v2::verify_auth))
+        // Jobs endpoint (MPP payment gated)
+        .route(
+            "/v1/jobs",
+            post(routes::jobs::create_job).route_layer(middleware::from_fn_with_state(
+                state.clone(),
+                mpp::middleware::mpp_payment_gate,
+            )),
+        )
+        // Job status (no payment gate — authenticated by job_id knowledge)
+        .route("/v1/jobs/{id}", get(routes::jobs::get_job))
         // VM management (no payment gate — authenticated by vm_id knowledge)
         .route("/v1/vms/{id}", get(routes::vm::get_vm))
         .route("/v1/vms/{id}", delete(routes::vm::delete_vm))

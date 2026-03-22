@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 pub mod models;
 
-use models::{VmRecord, VmStatus};
+use models::{JobRecord, VmRecord, VmStatus};
 
 pub struct Database {
     conn: Mutex<Connection>,
@@ -92,6 +92,29 @@ impl Database {
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (vm_id) REFERENCES vms(id)
             );
+
+            CREATE TABLE IF NOT EXISTS jobs (
+                id TEXT PRIMARY KEY,
+                vm_id TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                command TEXT NOT NULL,
+                setup_script TEXT,
+                output TEXT DEFAULT '',
+                exit_code INTEGER,
+                timeout_secs INTEGER NOT NULL DEFAULT 300,
+                vcpus INTEGER NOT NULL DEFAULT 1,
+                ram_mb INTEGER NOT NULL DEFAULT 512,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                expires_at TEXT NOT NULL,
+                payment_tx TEXT,
+                price_micro INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (vm_id) REFERENCES vms(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+            CREATE INDEX IF NOT EXISTS idx_jobs_expires_at ON jobs(expires_at);
             ",
         )?;
         Ok(())
@@ -441,5 +464,158 @@ impl Database {
             .query_map([], |row| row.get(0))?
             .collect::<Result<Vec<String>, _>>()?;
         Ok(ips)
+    }
+
+    // ---- Job methods ----
+
+    /// Insert a new job record.
+    pub fn insert_job(&self, job: &JobRecord) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, vm_id, status, command, setup_script, output, exit_code,
+             timeout_secs, vcpus, ram_mb, created_at, started_at, completed_at, expires_at,
+             payment_tx, price_micro)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            rusqlite::params![
+                job.id,
+                job.vm_id,
+                job.status,
+                job.command,
+                job.setup_script,
+                job.output,
+                job.exit_code,
+                job.timeout_secs,
+                job.vcpus,
+                job.ram_mb,
+                job.created_at.to_rfc3339(),
+                job.started_at.map(|t| t.to_rfc3339()),
+                job.completed_at.map(|t| t.to_rfc3339()),
+                job.expires_at.to_rfc3339(),
+                job.payment_tx,
+                job.price_micro,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get a job by ID.
+    pub fn get_job(&self, id: &str) -> Result<Option<JobRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, vm_id, status, command, setup_script, output, exit_code,
+             timeout_secs, vcpus, ram_mb, created_at, started_at, completed_at,
+             expires_at, payment_tx, price_micro
+             FROM jobs WHERE id = ?1",
+        )?;
+
+        let result = stmt.query_row(rusqlite::params![id], |row| {
+            Ok(JobRecord {
+                id: row.get(0)?,
+                vm_id: row.get(1)?,
+                status: row.get(2)?,
+                command: row.get(3)?,
+                setup_script: row.get(4)?,
+                output: row.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                exit_code: row.get(6)?,
+                timeout_secs: row.get(7)?,
+                vcpus: row.get(8)?,
+                ram_mb: row.get(9)?,
+                created_at: row
+                    .get::<_, String>(10)?
+                    .parse::<DateTime<Utc>>()
+                    .unwrap(),
+                started_at: row
+                    .get::<_, Option<String>>(11)?
+                    .and_then(|s| s.parse::<DateTime<Utc>>().ok()),
+                completed_at: row
+                    .get::<_, Option<String>>(12)?
+                    .and_then(|s| s.parse::<DateTime<Utc>>().ok()),
+                expires_at: row
+                    .get::<_, String>(13)?
+                    .parse::<DateTime<Utc>>()
+                    .unwrap(),
+                payment_tx: row.get(14)?,
+                price_micro: row.get(15)?,
+            })
+        });
+
+        match result {
+            Ok(job) => Ok(Some(job)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Mark a job as running with a VM ID.
+    pub fn update_job_started(&self, id: &str, vm_id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE jobs SET status = 'running', vm_id = ?1, started_at = ?2 WHERE id = ?3",
+            rusqlite::params![vm_id, Utc::now().to_rfc3339(), id],
+        )?;
+        Ok(())
+    }
+
+    /// Mark a job as completed, failed, or timed out.
+    pub fn update_job_completed(
+        &self,
+        id: &str,
+        exit_code: Option<i32>,
+        output: &str,
+        status: &str,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE jobs SET status = ?1, exit_code = ?2, output = ?3, completed_at = ?4 WHERE id = ?5",
+            rusqlite::params![status, exit_code, output, Utc::now().to_rfc3339(), id],
+        )?;
+        Ok(())
+    }
+
+    /// List jobs that have expired but aren't completed/failed/timed out.
+    pub fn list_expired_jobs(&self) -> Result<Vec<JobRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        let mut stmt = conn.prepare(
+            "SELECT id, vm_id, status, command, setup_script, output, exit_code,
+             timeout_secs, vcpus, ram_mb, created_at, started_at, completed_at,
+             expires_at, payment_tx, price_micro
+             FROM jobs WHERE expires_at < ?1 AND status NOT IN ('completed', 'failed', 'timeout')",
+        )?;
+
+        let jobs = stmt
+            .query_map(rusqlite::params![now], |row| {
+                Ok(JobRecord {
+                    id: row.get(0)?,
+                    vm_id: row.get(1)?,
+                    status: row.get(2)?,
+                    command: row.get(3)?,
+                    setup_script: row.get(4)?,
+                    output: row.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                    exit_code: row.get(6)?,
+                    timeout_secs: row.get(7)?,
+                    vcpus: row.get(8)?,
+                    ram_mb: row.get(9)?,
+                    created_at: row
+                        .get::<_, String>(10)?
+                        .parse::<DateTime<Utc>>()
+                        .unwrap(),
+                    started_at: row
+                        .get::<_, Option<String>>(11)?
+                        .and_then(|s| s.parse::<DateTime<Utc>>().ok()),
+                    completed_at: row
+                        .get::<_, Option<String>>(12)?
+                        .and_then(|s| s.parse::<DateTime<Utc>>().ok()),
+                    expires_at: row
+                        .get::<_, String>(13)?
+                        .parse::<DateTime<Utc>>()
+                        .unwrap(),
+                    payment_tx: row.get(14)?,
+                    price_micro: row.get(15)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(jobs)
     }
 }
