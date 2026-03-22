@@ -455,6 +455,17 @@ fn build_payment_required_inner(
             url: "/v1/provision".to_string(),
             description: "Provision a Firecracker microVM".to_string(),
             mime_type: "application/json".to_string(),
+            method: Some("POST".to_string()),
+            input_schema: Some(serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "vcpus": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 },
+                    "ram_mb": { "type": "integer", "minimum": 256, "maximum": 4096, "default": 512 },
+                    "disk_gb": { "type": "integer", "minimum": 1, "maximum": 20, "default": 10 },
+                    "image": { "type": "string", "default": "ubuntu-24.04" },
+                    "duration": { "type": "integer", "minimum": 60, "maximum": 86400, "default": 3600, "description": "Duration in seconds" }
+                }
+            })),
         },
         accepts,
     }

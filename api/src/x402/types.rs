@@ -18,6 +18,10 @@ pub struct ResourceInfo {
     pub url: String,
     pub description: String,
     pub mime_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<serde_json::Value>,
 }
 
 /// A single accepted payment method/network.
