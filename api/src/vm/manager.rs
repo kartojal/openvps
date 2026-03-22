@@ -52,13 +52,27 @@ pub struct VmManager {
 impl VmManager {
     pub fn new(config: Config, db: Arc<Database>, ip_pool: Arc<IpPool>) -> Self {
         let port_base = config.ssh_port_base;
+
+        // Derive next port from existing running VMs to survive restarts
+        let running_count = db.list_running_vms().map(|v| v.len()).unwrap_or(0) as u16;
+        let next_port = port_base + 1 + running_count;
+
+        // Rebuild vm_ports map from running VMs
+        let mut ports_map = HashMap::new();
+        if let Ok(running) = db.list_running_vms() {
+            for (i, vm) in running.iter().enumerate() {
+                let port = port_base + 1 + i as u16;
+                ports_map.insert(vm.id, port);
+            }
+        }
+
         Self {
             config,
             db,
             ip_pool,
             active_vms: Mutex::new(HashMap::new()),
-            next_ssh_port: Mutex::new(port_base + 1),
-            vm_ports: Mutex::new(HashMap::new()),
+            next_ssh_port: Mutex::new(next_port),
+            vm_ports: Mutex::new(ports_map),
         }
     }
 
