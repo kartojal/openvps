@@ -478,16 +478,26 @@ fn build_payment_required_inner(
                     "skillUrl": "https://openvps.sh/skill.md"
                 },
                 "schema": {
-                    "input": input_schema,
-                    "output": {
-                        "type": "object",
-                        "properties": {
-                            "vm_id": { "type": "string" },
-                            "ssh_host": { "type": "string" },
-                            "ssh_port": { "type": "integer" },
-                            "ssh_command": { "type": "string" },
-                            "ssh_private_key": { "type": "string" },
-                            "expires_at": { "type": "string" }
+                    "properties": {
+                        "input": {
+                            "properties": {
+                                "body": input_schema
+                            }
+                        },
+                        "output": {
+                            "properties": {
+                                "example": {
+                                    "type": "object",
+                                    "properties": {
+                                        "vm_id": { "type": "string" },
+                                        "ssh_host": { "type": "string" },
+                                        "ssh_port": { "type": "integer" },
+                                        "ssh_command": { "type": "string" },
+                                        "ssh_private_key": { "type": "string" },
+                                        "expires_at": { "type": "string" }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
