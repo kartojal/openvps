@@ -733,23 +733,31 @@ gsap.to('#scanline', {
   ease: 'none',
 });
 
-// Hero reveal
-gsap.from('.hero .reveal', {
-  y: 40,
-  opacity: 0,
+// Hero reveal — use gsap.to (elements start hidden via CSS)
+gsap.to('.hero .reveal', {
+  y: 0,
+  opacity: 1,
   duration: 1,
   stagger: 0.15,
   ease: 'power3.out',
-  delay: 0.3,
+  delay: 0.2,
 });
 
-gsap.from('.hero .reveal-scale', {
-  scale: 0.95,
-  opacity: 0,
+gsap.to('.hero .reveal-scale', {
+  scale: 1,
+  opacity: 1,
   duration: 1,
   ease: 'power3.out',
-  delay: 0.9,
+  delay: 0.6,
 });
+
+// Fallback: ensure hero is visible even if GSAP fails
+setTimeout(() => {
+  document.querySelectorAll('.hero .reveal, .hero .reveal-scale').forEach(el => {
+    el.style.opacity = '1';
+    el.style.transform = 'none';
+  });
+}, 2000);
 
 // Scroll-triggered reveals
 document.querySelectorAll('.section').forEach(section => {
