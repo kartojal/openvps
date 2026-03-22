@@ -18,6 +18,9 @@ pub struct CreateJobInput {
     pub command: String,
     /// Optional setup script to run before the command.
     pub setup: Option<String>,
+    /// Files to upload to the VM before running (path → content).
+    /// Example: {"/root/test.py": "print('hello')", "/root/data.json": "{}"}
+    pub files: Option<std::collections::HashMap<String, String>>,
     /// Number of vCPUs (1-4, default 1).
     pub vcpus: Option<u32>,
     /// RAM in MB (256-4096, default 512).
@@ -33,6 +36,8 @@ pub struct CreateJobInput {
 pub struct CreateJobOutput {
     pub job_id: String,
     pub status: String,
+    pub ssh_host: String,
+    pub ssh_port: u16,
     pub poll_url: String,
     pub timeout: u32,
     pub expires_at: String,
@@ -187,10 +192,15 @@ pub async fn create_job(
     );
 
     // Spawn background task to execute the command
+    // Return SSH details so agent can also manually connect / rsync if needed
+    let public_ssh_host = provision_result.ssh_host.clone();
+    let public_ssh_port = provision_result.ssh_port;
+
     let state_bg = state.clone();
     let job_id_bg = job_id.clone();
     let command = input.command.clone();
     let setup_script = input.setup.clone();
+    let files = input.files.clone();
 
     tokio::spawn(async move {
         execute_job(
@@ -202,6 +212,7 @@ pub async fn create_job(
             &ssh_private_key,
             &command,
             setup_script.as_deref(),
+            files.as_ref(),
             timeout_secs,
         )
         .await;
@@ -213,6 +224,8 @@ pub async fn create_job(
         Json(CreateJobOutput {
             job_id,
             status: "running".to_string(),
+            ssh_host: public_ssh_host,
+            ssh_port: public_ssh_port,
             poll_url: format!("/v1/jobs/{}", job.id),
             timeout: timeout_secs,
             expires_at: expires_at.to_rfc3339(),
@@ -271,7 +284,7 @@ pub async fn get_job(
     }
 }
 
-/// Execute a job: SSH into the VM, run setup + command, capture output, terminate VM.
+/// Execute a job: SSH into the VM, upload files, run setup + command, capture output, terminate VM.
 async fn execute_job(
     state: &AppState,
     job_id: &str,
@@ -281,6 +294,7 @@ async fn execute_job(
     ssh_private_key: &str,
     command: &str,
     setup_script: Option<&str>,
+    files: Option<&std::collections::HashMap<String, String>>,
     timeout_secs: u32,
 ) {
     let key_path = format!("/tmp/job_{}_key", job_id);
@@ -327,6 +341,34 @@ async fn execute_job(
 
     let result = tokio::time::timeout(timeout_duration, async {
         let mut combined_output = String::new();
+
+        // Upload files if provided
+        if let Some(files) = files {
+            info!(job_id = %job_id, count = files.len(), "Uploading files");
+            for (path, content) in files {
+                // Ensure parent directory exists, then write file via SSH
+                let _escaped_content = content.replace('\'', "'\\''");
+                let mkdir_cmd = if let Some(parent) = std::path::Path::new(path).parent() {
+                    format!("mkdir -p '{}'", parent.display())
+                } else {
+                    String::new()
+                };
+                let write_cmd = format!(
+                    "{} && cat > '{}' << 'OPENVPS_EOF'\n{}\nOPENVPS_EOF",
+                    mkdir_cmd, path, content
+                );
+                match run_ssh_command(ssh_host, ssh_port, &key_path, &write_cmd).await {
+                    Ok((0, _)) => {}
+                    Ok((code, output)) => {
+                        combined_output.push_str(&format!("=== FILE UPLOAD FAILED: {} (exit {}) ===\n{}\n", path, code, output));
+                        warn!(job_id = %job_id, path, code, "File upload failed");
+                    }
+                    Err(e) => {
+                        combined_output.push_str(&format!("=== FILE UPLOAD ERROR: {} ===\n{}\n", path, e));
+                    }
+                }
+            }
+        }
 
         // Run setup script if provided
         if let Some(setup) = setup_script {
