@@ -442,8 +442,8 @@ footer a:hover { text-decoration: underline; }
       <div class="px-block"></div>
     </div>
 
-    <h1>VPS for <span class="accent">AI Agents</span>.<br>Pay crypto. SSH in seconds.</h1>
-    <p class="subtitle">Firecracker microVMs provisioned via HTTP 402. Your agent pays with stablecoins — gets root SSH access in under 3 seconds. No accounts. No API keys. Just pay and compute.</p>
+    <h1>Servers that <span class="accent">AI agents</span><br>can buy themselves.</h1>
+    <p class="subtitle">Your AI agent needs a server? It requests one, pays with USDC, and gets full access in 3 seconds. No signups. No credit cards. No human in the loop.</p>
 
     <!-- Live status -->
     <div class="status-bar" id="status-bar">
@@ -469,11 +469,11 @@ footer a:hover { text-decoration: underline; }
 
   <!-- CTA -->
   <div class="cta-block">
-    <div class="cta-label mono">Point your AI agent here</div>
+    <div class="cta-label mono">Paste this in your AI agent</div>
     <div class="cta-command mono">
       <span class="prompt">$</span> curl openvps.sh/skill.md
     </div>
-    <div class="cta-hint mono">Your agent reads the skill, pays, and SSHs in. That's it.</div>
+    <div class="cta-hint mono">Your agent learns how to buy a server, pay for it, and connect. Autonomously.</div>
   </div>
 
   <div style="text-align: center;">
@@ -485,22 +485,22 @@ footer a:hover { text-decoration: underline; }
 
   <!-- How it works -->
   <div class="section">
-    <h2>How it works</h2>
+    <h2>Three steps. No humans.</h2>
     <div class="steps">
       <div class="step">
         <div class="step-number">1</div>
-        <h3>Request</h3>
-        <p>POST /v1/provision with desired specs. Get a 402 Payment Required with pricing.</p>
+        <h3>Ask for a server</h3>
+        <p>Your agent tells us what it needs — CPUs, memory, how long. We reply with the price.</p>
       </div>
       <div class="step">
         <div class="step-number">2</div>
-        <h3>Pay</h3>
-        <p>Transfer stablecoins on Base, Celo, or Tempo. x402 or MPP — your choice.</p>
+        <h3>Pay with USDC</h3>
+        <p>The agent pays with stablecoins on Base, Celo, or Tempo. Pennies per hour.</p>
       </div>
       <div class="step">
         <div class="step-number">3</div>
-        <h3>Compute</h3>
-        <p>Get a public IP, SSH port, and private key. Root access to Ubuntu 24.04.</p>
+        <h3>Connect & work</h3>
+        <p>Instantly gets a private key and IP address. Full root access to a fresh Linux server.</p>
       </div>
     </div>
 
@@ -528,7 +528,7 @@ curl -s https://openvps.sh/v1/provision \
 
   <!-- Payment Networks -->
   <div class="section">
-    <h2>Pay with any stablecoin</h2>
+    <h2>Pay from any chain</h2>
     <div class="networks">
       <div class="network-card">
         <div class="protocol">x402</div>
@@ -547,7 +547,7 @@ curl -s https://openvps.sh/v1/provision \
       </div>
     </div>
     <p style="text-align: center; color: var(--muted); font-size: 13px; margin-top: 16px;">
-      Wallets: Foundry keystore, Open Wallet Standard, Coinbase Agentic Wallet, Bankr, or any EVM signer
+      Works with any wallet — Coinbase, MetaMask, Foundry, or programmatic signers
     </p>
   </div>
 
@@ -571,38 +571,36 @@ curl -s https://openvps.sh/v1/provision \
 
   <!-- Specs -->
   <div class="section">
-    <h2>What you get</h2>
+    <h2>What your agent gets</h2>
     <div class="steps">
       <div class="step">
-        <h3>Ubuntu 24.04 LTS</h3>
-        <p>Fresh amd64 VM with curl, wget, git, Python, and standard dev tools.</p>
+        <h3>Real Linux server</h3>
+        <p>Ubuntu 24.04 with full root access. Install anything, run anything.</p>
       </div>
       <div class="step">
-        <h3>Firecracker microVM</h3>
-        <p>Sub-second boot. Hardware-isolated via KVM. Not a container.</p>
+        <h3>Boots in seconds</h3>
+        <p>Lightweight VMs that start nearly instantly. Not containers — real isolated machines.</p>
       </div>
       <div class="step">
-        <h3>Public SSH Access</h3>
-        <p>Unique port on a public IP. Ed25519 key generated per VM.</p>
+        <h3>SSH from anywhere</h3>
+        <p>Public IP with a unique SSH key generated for every server. Connect from anywhere in the world.</p>
       </div>
       <div class="step">
-        <h3>Network Isolated</h3>
-        <p>VMs can't see each other or the host. Full internet access outbound.</p>
+        <h3>Fully isolated</h3>
+        <p>Each server is completely separated. No other agent can see your data or traffic.</p>
       </div>
     </div>
   </div>
 
   <!-- For agents -->
   <div class="section">
-    <h2>For AI agents</h2>
-    <div class="code-block"><code><span class="comment"># Give your agent the skill</span>
-curl -s https://openvps.sh/skill.md
-
-<span class="comment"># Or add to your agent's instructions:</span>
+    <h2>Works with any AI agent</h2>
+    <div class="code-block"><code><span class="comment"># Tell your agent:</span>
 <span class="string">"When you need a server, read https://openvps.sh/skill.md"</span>
 
-<span class="comment"># Works with: Claude Code, OpenClaw, Cursor, Cline, Codex CLI</span>
-<span class="comment"># Any agent that can make HTTP requests and sign transactions</span></code></div>
+<span class="comment"># Compatible with:</span>
+<span class="comment"># Claude Code, Cursor, Codex CLI, OpenClaw, Cline, Windsurf</span>
+<span class="comment"># Any agent that can make HTTP requests and hold a wallet</span></code></div>
   </div>
 
   <footer>
@@ -612,7 +610,7 @@ curl -s https://openvps.sh/skill.md
       <a href="https://github.com/kartojal/openvps">GitHub</a>
       <a href="/v1/provision">API</a>
     </div>
-    <p>Open source. Machine-to-machine payments. No humans required.</p>
+    <p>Open source. Built for the agent economy.</p>
   </footer>
 </div>
 
