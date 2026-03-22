@@ -448,26 +448,51 @@ fn build_payment_required_inner(
         },
     ];
 
+    let input_schema = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "vcpus": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1, "description": "Number of vCPUs" },
+            "ram_mb": { "type": "integer", "minimum": 256, "maximum": 4096, "default": 512, "description": "RAM in megabytes" },
+            "disk_gb": { "type": "integer", "minimum": 1, "maximum": 20, "default": 10, "description": "Disk in gigabytes" },
+            "image": { "type": "string", "default": "ubuntu-24.04", "description": "OS image" },
+            "duration": { "type": "integer", "minimum": 60, "maximum": 86400, "default": 3600, "description": "Duration in seconds" }
+        }
+    });
+
     PaymentRequired {
         x402_version: 2,
         error,
         resource: ResourceInfo {
             url: "/v1/provision".to_string(),
-            description: "Provision a Firecracker microVM".to_string(),
+            description: "Provision a Firecracker microVM with SSH access".to_string(),
             mime_type: "application/json".to_string(),
             method: Some("POST".to_string()),
-            input_schema: Some(serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "vcpus": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 },
-                    "ram_mb": { "type": "integer", "minimum": 256, "maximum": 4096, "default": 512 },
-                    "disk_gb": { "type": "integer", "minimum": 1, "maximum": 20, "default": 10 },
-                    "image": { "type": "string", "default": "ubuntu-24.04" },
-                    "duration": { "type": "integer", "minimum": 60, "maximum": 86400, "default": 3600, "description": "Duration in seconds" }
-                }
-            })),
+            input_schema: Some(input_schema.clone()),
         },
         accepts,
+        extensions: Some(serde_json::json!({
+            "bazaar": {
+                "info": {
+                    "title": "OpenVPS",
+                    "description": "AI-agent VPS hosting. Pay with stablecoins, get root SSH to Ubuntu 24.04 microVMs in seconds.",
+                    "skillUrl": "https://openvps.sh/skill.md"
+                },
+                "schema": {
+                    "input": input_schema,
+                    "output": {
+                        "type": "object",
+                        "properties": {
+                            "vm_id": { "type": "string" },
+                            "ssh_host": { "type": "string" },
+                            "ssh_port": { "type": "integer" },
+                            "ssh_command": { "type": "string" },
+                            "ssh_private_key": { "type": "string" },
+                            "expires_at": { "type": "string" }
+                        }
+                    }
+                }
+            }
+        })),
     }
 }
 

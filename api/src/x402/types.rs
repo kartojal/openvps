@@ -9,6 +9,8 @@ pub struct PaymentRequired {
     pub error: Option<String>,
     pub resource: ResourceInfo,
     pub accepts: Vec<PaymentRequirements>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<serde_json::Value>,
 }
 
 /// Describes the resource being paid for.
