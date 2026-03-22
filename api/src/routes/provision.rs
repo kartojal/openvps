@@ -1,12 +1,34 @@
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::vm::manager::ProvisionRequest;
 use crate::AppState;
+
+/// GET /v1/provision — returns 402 with payment info for discovery probes (x402scan etc.)
+/// The middleware handles this by seeing no payment headers and returning 402.
+/// But if the middleware passes through (shouldn't happen on GET), return info.
+pub async fn provision_info(State(state): State<AppState>) -> Response {
+    let price_micro = state.config.calculate_price_micro(1, 512, 10, 3600);
+    (
+        StatusCode::PAYMENT_REQUIRED,
+        Json(serde_json::json!({
+            "error": "payment_required",
+            "message": "POST with payment to provision a VM. See https://openvps.sh/skill.md",
+            "example_price": {
+                "vcpus": 1,
+                "ram_mb": 512,
+                "disk_gb": 10,
+                "duration": 3600,
+                "amount_microdollars": price_micro,
+            }
+        })),
+    )
+        .into_response()
+}
 
 /// Provision request from an AI agent.
 #[derive(Debug, Deserialize)]

@@ -175,12 +175,13 @@ pub async fn mpp_payment_gate(
                 }
             };
 
-            let provision: ProvisionBody = match serde_json::from_slice(&body_bytes) {
-                Ok(p) => p,
-                Err(_) => {
-                    return (StatusCode::BAD_REQUEST, "Invalid JSON body").into_response()
-                }
-            };
+            let provision: ProvisionBody = serde_json::from_slice(&body_bytes)
+                .unwrap_or(ProvisionBody {
+                    vcpus: None,
+                    ram_mb: None,
+                    disk_gb: None,
+                    duration: None,
+                });
 
             let vcpus = provision.vcpus.unwrap_or(1);
             let ram_mb = provision.ram_mb.unwrap_or(512);
@@ -448,7 +449,7 @@ fn build_payment_required_inner(
     ];
 
     PaymentRequired {
-        x402_version: 1,
+        x402_version: 2,
         error,
         resource: ResourceInfo {
             url: "/v1/provision".to_string(),

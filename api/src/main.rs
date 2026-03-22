@@ -71,9 +71,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/.well-known/x402", get(routes::discovery::well_known_x402))
         .route("/openapi.json", get(routes::discovery::openapi))
         // Provision endpoint (MPP payment gated)
+        // POST = actual provision, GET = always returns 402 (for x402 discovery probes)
         .route(
             "/v1/provision",
             post(routes::provision::provision)
+                .get(routes::provision::provision_info)
                 .route_layer(middleware::from_fn_with_state(
                     state.clone(),
                     mpp::middleware::mpp_payment_gate,
