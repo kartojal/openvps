@@ -68,6 +68,8 @@ async fn main() -> anyhow::Result<()> {
         // Health check (no payment required)
         .route("/health", get(routes::health::health))
         .route("/status", get(routes::health::status))
+        .route("/.well-known/x402", get(routes::discovery::well_known_x402))
+        .route("/openapi.json", get(routes::discovery::openapi))
         // Provision endpoint (MPP payment gated)
         .route(
             "/v1/provision",
