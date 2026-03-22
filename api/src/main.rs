@@ -7,6 +7,9 @@ mod routes;
 mod vm;
 mod x402;
 
+#[cfg(test)]
+mod tests;
+
 use axum::middleware;
 use axum::routing::{delete, get, post};
 use axum::Router;
