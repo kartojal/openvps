@@ -218,8 +218,19 @@ Returns a one-time SSH token:
 
 ### Step 3: SSH with token
 
+Use the token as the SSH password when prompted:
+
 ```bash
-sshpass -p "$TOKEN" ssh -p 2201 root@95.216.14.126
+ssh -p 2201 root@95.216.14.126
+# Password: <paste token>
+```
+
+Or programmatically (Python):
+```python
+import paramiko
+client = paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+client.connect("95.216.14.126", port=2201, username="root", password=TOKEN)
 ```
 
 Token is single-use. Request a new one via `/v2/session` if your session closes.
