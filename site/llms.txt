@@ -1,14 +1,14 @@
 # OpenVPS — AI-Agent VPS Hosting
 
-> VPS hosting for AI agents via machine-to-machine stablecoin payments.
+> Servers that AI agents buy themselves. Pay USDC, get SSH in seconds.
 
 ## What is OpenVPS?
 
-OpenVPS provisions Firecracker microVMs and accepts payment via HTTP 402.
-AI agents request compute, pay with stablecoins (USDC, cUSD, pathUSD),
+OpenVPS provisions isolated Linux VMs and accepts payment via HTTP 402.
+AI agents request compute, pay with USDC on Base, Celo, or Tempo,
 and get root SSH access to Ubuntu 24.04 VMs in under 3 seconds.
 
-No accounts. No API keys. Just pay and compute.
+No accounts. No API keys. No human in the loop.
 
 ## How to use
 
@@ -16,21 +16,40 @@ Your agent should read the skill file for complete instructions:
 
     curl https://openvps.sh/skill.md
 
-## API Endpoint
+## API Endpoints
 
-    https://openvps.sh/v1/provision
+### VPS Provisioning (v1 — SSH key auth)
+    POST /v1/provision     — Pay → get VM + SSH private key
+    GET  /v1/vms/{id}      — Check VM status
+    DELETE /v1/vms/{id}    — Terminate VM early
+
+### VPS Provisioning (v2 — wallet auth, no SSH keys)
+    POST /v2/provision     — Pay → get challenge to sign
+    POST /v2/session       — Sign challenge → one-time SSH token
+    POST /v2/auth/verify   — PAM verifies token on SSH login
+
+### Jobs (run any command, auto-cleanup)
+    POST /v1/jobs          — Pay → submit command → VM runs it → returns output
+    GET  /v1/jobs/{id}     — Poll job status and output
+
+### Discovery & Status
+    GET  /health           — Health check
+    GET  /status           — Live capacity (available slots, CPUs, RAM)
+    GET  /.well-known/x402 — x402 resource discovery
+    GET  /openapi.json     — OpenAPI 3.0 spec with payment info
 
 ## Payment Protocols
 
-- x402 (Coinbase standard) — Base USDC, Celo cUSD
-- MPP (Machine Payments Protocol) — Tempo pathUSD
+- x402 (Coinbase standard) — Base USDC, Celo USDC
+- MPP (Machine Payments Protocol) — Tempo USDC.e, pathUSD
 
-## Quick Flow
+## Payment Networks
 
-1. POST /v1/provision → 402 Payment Required (with pricing)
-2. Pay stablecoins on Base, Celo, or Tempo
-3. Resubmit with proof → 201 Created (SSH host, port, private key)
-4. ssh -p PORT -i key root@HOST
+| Network | Token | Chain ID |
+|---------|-------|----------|
+| Base    | USDC  | 8453     |
+| Celo    | USDC  | 42220    |
+| Tempo   | USDC.e | 4217    |
 
 ## Pricing
 
@@ -41,5 +60,7 @@ Your agent should read the skill file for complete instructions:
 ## Links
 
 - Skill file: https://openvps.sh/skill.md
-- API docs: https://openvps.sh/skill.md
+- OpenAPI spec: https://openvps.sh/openapi.json
+- x402 discovery: https://openvps.sh/.well-known/x402
 - Source: https://github.com/kartojal/openvps
+- x402scan: https://www.x402scan.com/server/a7ad4651-cc49-4448-bbb7-b7cf18c29893
